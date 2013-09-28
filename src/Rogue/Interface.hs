@@ -9,13 +9,17 @@ module Rogue.Interface (
 
 import Rogue.Types
 import Rogue.World
+import Rogue.Actions
 
-import Text.Printf (printf)
-import qualified Data.Text as T
-import Graphics.Vty.Widgets.All
-import Graphics.Vty.LLInput
 import Control.Monad.State
 import Control.Monad.Reader
+import Graphics.Vty.Widgets.All
+import Graphics.Vty.LLInput
+import Text.Printf
+
+import Control.Monad.Base
+
+import qualified Data.Text as T
 
 play :: Rogue ()
 play = do
@@ -25,15 +29,26 @@ play = do
     r <- liftIO $ createMainInterface initialStatus initialWorld
     let (world, status, fg, c, mainIF) = r
 
+    cfg <- ask
+    {-liftIO $ assignBindings (bindings cfg) fg-}
+
     liftIO $ fg `onKeyPressed` \w k ms ->
         if k == KASCII 'd' && MCtrl `elem` ms then
             shutdownUi >> return True
         else
             return False
 
+    liftIO $ fg `onKeyPressed` \w k ms ->
+        if k == KASCII 'j' then
+            liftBase (move S) >> return True
+        else
+            return False
+
     liftIO $ runUi c defaultContext
-    
-    return ()
+
+{-assignBindings :: Bindings -> Widget FocusGroup -> IO ()-}
+
+
 
 getStatusBar :: Rogue T.Text
 getStatusBar = do
