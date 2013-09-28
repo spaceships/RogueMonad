@@ -3,32 +3,30 @@ module Rogue.Actions where
 import Rogue.Types
 import Rogue.World
 
-import Data.Array ((!))
-import qualified Data.Map as Map (lookup)
-import Control.Monad (guard)
+import Data.Array
 import Control.Monad.State
-import Control.Monad.Reader
+
+import qualified Data.Map as M
 
 move :: Direction -> Rogue ()
 move d = do
-    s <- get
-    (maxX, maxY) <- asks worldSize
+    st <- get
 
-    let w = world s
-        es = enemies s
-        p = player s
-        newPos@(x,y) = dirToPos d `addP` pos p
+    let w      = world st
+        es     = enemies st
+        p      = player st
+        newPos = pos p `addP` dirToPos d
 
-        -- check that new pos is IN THE WORLD
-    if (x >= 0 && y >= 0 && x <= maxX && y <= maxY) &&
-        -- check that new pos is FLOOR
-       (maybe False (== Floor) (w ! newPos)) &&
-        -- check that there is no enemy there
-       (maybe True (const False) $ Map.lookup newPos es)
-    then -- MOVE
-        put $ s { player = p { pos = newPos } }
-    else
-        return ()
+    when (newPos `isFloor` w && newPos `M.notMember` es)
+        (put st{ player = p{ pos = newPos }})
+
+isFloor :: Position -> World -> Bool
+isFloor = isThing Floor
+
+isThing :: Thing -> Position -> World -> Bool
+isThing t p w 
+    | p `inWorld` w = maybe False (== t) (w ! p)
+    | otherwise      = False          
 
 dirToPos :: Direction -> Position
 dirToPos d = case d of 

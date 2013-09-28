@@ -1,9 +1,10 @@
 module Rogue.Types where
 
+import Data.Array
 import Control.Monad.State
 import Control.Monad.Reader
-import Data.Array
-import qualified Data.Map as Map
+
+import qualified Data.Map as M
 
 type Rogue = StateT RState (ReaderT RConfig IO)
 runRogue :: Rogue () -> RConfig -> RState -> IO ()
@@ -12,7 +13,7 @@ runRogue m c s = runReaderT (evalStateT m s) c
 data RState = RState 
     {
       world   :: World
-    , enemies :: Map.Map Position Actor
+    , enemies :: M.Map Position Actor
     , player  :: Actor
     }
 
@@ -37,7 +38,7 @@ data Actor = Actor
 type Position      = (Int, Int)
 type Size          = (Int, Int)
 type World         = Array Position (Maybe Thing)
-type WorldGlyphMap = Map.Map Thing Char
+type WorldGlyphMap = M.Map Thing Char
 
 data Thing = Floor | Wall
     deriving (Ord, Show, Eq)
@@ -45,10 +46,16 @@ data Thing = Floor | Wall
 data Direction = N | NE | E | SE | S | SW | W | NW
     deriving (Ord, Eq, Show, Enum)
 
--- Utility functions
+-- Utility functions -- should probably go somewhere else
 
-liftP :: (a -> b -> c) -> (a, a) -> (b, b) -> (c, c)
-liftP f (ax, ay) (bx, by) = (f ax bx, f ay by)
+liftP :: (a -> b) -> (a, a) -> (b, b)
+liftP f (a, b) = (f a, f b)
+
+liftP2 :: (a -> b -> c) -> (a, a) -> (b, b) -> (c, c)
+liftP2 f (ax, ay) (bx, by) = (f ax bx, f ay by)
 
 addP :: Position -> Position -> Position
-addP = liftP (+)
+addP = liftP2 (+)
+
+subP :: Position -> Position -> Position
+subP = liftP2 (-)
