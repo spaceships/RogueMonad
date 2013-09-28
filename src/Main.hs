@@ -21,7 +21,7 @@ demoConf = RConfig {
 demoState :: RState
 demoState = RState { 
                      world = blankWorld demoWorldSize
-                   , enemies = []
+                   , enemies = Map.empty
                    , player = demoChar
                    }
 

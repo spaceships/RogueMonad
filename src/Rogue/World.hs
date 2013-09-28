@@ -1,6 +1,9 @@
 module Rogue.World where
 
 import Rogue.Types
+
+import Control.Monad.State
+import Control.Monad.Reader
 import Data.Array
 import Data.Maybe (fromMaybe)
 import qualified Data.Map as Map
@@ -8,14 +11,21 @@ import qualified Data.Text as T
 
 showWorld :: Rogue T.Text
 showWorld = do
-    RState world enemies player <- get
-    RConfig worldSize (screenMaxX, screenMaxY) glyphs <- ask
-    let (x, y)       = pos player
-        (dx, dy)     = (screenMaxX `div` 2, screenMaxY `div` 2)
+    s <- get
+    c <- ask
+    let w  = world s
+        es = enemies s
+        p  = player s
+
+        (sMaxX, sMaxY) = screenSize c
+        glyphs         = worldGlyphs c
+        
+    let (x, y)       = pos p
+        (dx, dy)     = (sMaxX `div` 2, sMaxY `div` 2)
         (xmin, ymin) = (x - dx, y - dy)
         (xmax, ymax) = (x + dx, y + dy)
-        textWorld    = fmap (toGlyph glyphs) world :: Array Position Char
-        things       = Map.fromList [ (pos player, player) ] -- add enemies eventually
+        textWorld    = fmap (toGlyph glyphs) w :: Array Position Char
+        things       = Map.insert (pos p) p es
 
     return $ genTextWorld textWorld things (xmin, ymin) (xmax, ymax)
 

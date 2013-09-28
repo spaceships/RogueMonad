@@ -14,6 +14,8 @@ import Text.Printf (printf)
 import qualified Data.Text as T
 import Graphics.Vty.Widgets.All
 import Graphics.Vty.LLInput
+import Control.Monad.State
+import Control.Monad.Reader
 
 play :: Rogue ()
 play = do
