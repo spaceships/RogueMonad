@@ -2,42 +2,60 @@ module Rogue.Types (
       Rogue
     , RState(..)
     , RConfig(..)
-    , Character(..)
+    , Actor(..)
+    , WorldGlyphMap
     , Position
     , Size
+    , World
+    , Thing(..)
+
     , runRogue
-    , module Control.Monad.State
-    , module Control.Monad.Reader
+    , ask
+    , asks
+    , get
+    , gets
+    , liftIO
     ) where
 
 import Control.Monad.State
 import Control.Monad.Reader
+import Data.Array
+import qualified Data.Map as Map
 
 type Rogue = StateT RState (ReaderT RConfig IO)
 
 runRogue :: Rogue () -> RConfig -> RState -> IO ()
 runRogue m c s = runReaderT (evalStateT m s) c
 
--- eventually will have world information here too
 data RState = RState {
-      enemies :: [Character]
-    , player  :: Character
+      world   :: World
+    , enemies :: [Actor]
+    , player  :: Actor
     }
 
--- configuration options like keybindings, random seed etc.
 data RConfig = RConfig {
       worldSize :: Size
     , screenSize :: Size
+    , worldGlyphs :: WorldGlyphMap
 }
 
-data Character = Character {
+data Actor = Actor {
       hp  :: Int
     , maxHp :: Int
-    , acc :: Int -- accuracy
-    , def :: Int -- defense
+    , acc :: Int
+    , def :: Int
     , pos :: Position
+    , name :: String
     , glyph :: Char
     }
 
 type Position = (Int, Int)
+
 type Size = (Int, Int)
+
+type World = Array (Int, Int) (Maybe Thing)
+
+data Thing = Floor | Wall
+    deriving (Ord, Show, Eq)
+
+type WorldGlyphMap = Map.Map Thing Char
