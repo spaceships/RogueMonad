@@ -9,11 +9,15 @@ import qualified Data.Text as T
 showWorld :: Rogue T.Text
 showWorld = do
     RState world enemies player <- get
-    RConfig worldSize screenSize glyphs <- ask
-    let viewCenter = fmap (`div` 2) screenSize
-        textWorld = fmap (toGlyph glyphs) world :: Array Position Char
+    RConfig worldSize (screenMaxX, screenMaxY) glyphs <- ask
+    let (x, y)       = pos player
+        (dx, dy)     = (screenMaxX `div` 2, screenMaxY `div` 2)
+        (xmin, ymin) = (x - dx, y - dy)
+        (xmax, ymax) = (x + dx, y + dy)
+        textWorld    = fmap (toGlyph glyphs) world :: Array Position Char
+        things       = Map.fromList [ (pos player, player) ] -- add enemies eventually
 
-    return $ T.pack ""
+    return $ genTextWorld textWorld things (xmin, ymin) (xmax, ymax)
 
 genTextWorld :: Array Position Char -> 
                 Map.Map Position Actor -> 
@@ -24,11 +28,11 @@ genTextWorld :: Array Position Char ->
 genTextWorld w things (xmin, ymin) (xmax, ymax) = 
     T.unlines [ getLine y | y <- [ymin..ymax] ]
   where
-    getLine y = foldr T.cons (T.pack "") [
-        case Map.lookup (x,y) things of
-            Nothing -> w ! (x,y) -- no actor here
-            Just t  -> glyph t   -- actor here, show its glyph
-            | x <- [xmin..xmax]  ]
+    getLine y = foldr T.cons (T.pack "") $ do
+        x <- [xmin..xmax]
+        return $ case Map.lookup (x,y) things of
+            Nothing -> if x > 0 && y > 0 then w ! (x,y) else ' '
+            Just t  -> glyph t
         
 toGlyph :: WorldGlyphMap -> Maybe Thing -> Char
 toGlyph gm (Just x) = fromMaybe ' ' $ Map.lookup x gm

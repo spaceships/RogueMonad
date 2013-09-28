@@ -3,6 +3,7 @@ module Main where
 import Rogue.Interface
 import Rogue.Types
 import Rogue.World
+import Rogue.Actions
 import qualified Data.Map as Map
 
 main :: IO ()

@@ -1,13 +1,15 @@
-module Rogue.Types (
+module Rogue.Types 
+    (
       Rogue
     , RState(..)
     , RConfig(..)
     , Actor(..)
+    , Thing(..)
     , WorldGlyphMap
     , Position
     , Size
     , World
-    , Thing(..)
+    , Direction
 
     , runRogue
     , ask
@@ -59,3 +61,6 @@ data Thing = Floor | Wall
     deriving (Ord, Show, Eq)
 
 type WorldGlyphMap = Map.Map Thing Char
+
+data Direction = N | NE | E | SE | S | SW | W | NW
+    deriving (Ord, Eq, Show, Enum)
