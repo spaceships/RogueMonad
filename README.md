@@ -1,4 +1,14 @@
 RogueMonad
 ==========
 
-A roguelike written in Haskell
+A simple roguelike.
+
+Running
+-------
+
+>   cabal run
+
+Installation
+------------
+
+>   cabal install

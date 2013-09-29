@@ -9,7 +9,7 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Text.Printf
 import System.Console.ANSI
-import System.IO (stdin, hSetEcho)
+import System.IO
 import Data.Maybe (fromMaybe)
 
 
@@ -18,6 +18,7 @@ rogue = do
     liftIO hideCursor
     liftIO clearScreen
     liftIO $ hSetEcho stdin False
+    liftIO $ hSetBuffering stdin NoBuffering
 
     catchError play (\_ -> return ())
 
