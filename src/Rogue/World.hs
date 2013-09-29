@@ -12,29 +12,35 @@ showWorld :: Rogue String
 showWorld = do
     st  <- get
     cfg <- ask
+    
+    ((xmin,ymin), (xmax, ymax)) <- screenDimensions
 
-    let p         = player st
-        dPos      = liftP (`div` 2) (screenSize cfg)
-        screenMin = pos p `subP` dPos
-        screenMax = pos p `addP` dPos
-        textArray = fmap (toGlyph (worldGlyphs cfg)) (world st)
-        things    = M.insert (pos p) p (enemies st)
-        str       = textWorld textArray things screenMin screenMax
+    let
+        p                = player st
+        actors           = M.insert (position p) p (enemies st)
+        getChar          = getCharAtPos actors (world st) (worldGlyphs cfg)
+        makeLine y       = [ getChar (x,y) | x <- [xmin..xmax] ]
+        textWorld cfg st = unlines [ makeLine y | y <- [ymin..ymax] ]
 
-    return str
+    return $ textWorld cfg st
 
-textWorld :: Array Position Char -> 
-             M.Map Position Actor -> 
-             Position -> 
-             Position -> 
-             String
-textWorld w things (xmin, ymin) (xmax, ymax) = 
-    unlines [ makeLine y | y <- [ymin..ymax] ]
-  where
-    makeLine y = [ getChar (x,y) | x <- [xmin..xmax] ]
-    getChar p | p `inWorld` w = maybe (w ! p) glyph $ M.lookup p things 
-              | otherwise     = ' '
+
         
+getCharAtPos :: M.Map Position Actor -> World -> WorldGlyphMap -> Position -> Char
+getCharAtPos things w gm pos = 
+    if pos `inWorld` w then 
+        maybe (toGlyph gm $ w ! pos) glyph $ M.lookup pos things 
+    else
+        ' ' 
+
+screenDimensions :: Rogue (Position, Position)
+screenDimensions = do
+    p <- gets (position . player)
+    size <- asks screenSize
+    let dPos = liftP (`div` 2) size
+    return (p `subP` dPos, p `addP` dPos)
+
+
 toGlyph :: WorldGlyphMap -> Maybe Thing -> Char
 toGlyph gm (Just x) = fromMaybe ' ' $ M.lookup x gm
 toGlyph _ Nothing   = ' '

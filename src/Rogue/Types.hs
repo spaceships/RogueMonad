@@ -28,13 +28,13 @@ data RConfig = RConfig
 
 data Actor = Actor 
     {
-      hp    :: Int
-    , maxHp :: Int
-    , acc   :: Int
-    , def   :: Int
-    , pos   :: Position
-    , name  :: String
-    , glyph :: Char
+      hp       :: Int
+    , maxHp    :: Int
+    , acc      :: Int
+    , def      :: Int
+    , position :: Position
+    , name     :: String
+    , glyph    :: Char
     }
 
 type Bindings      = [(Char, Rogue ())]

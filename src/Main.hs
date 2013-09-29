@@ -50,7 +50,7 @@ demoChar = Actor {
     , maxHp = 10
     , acc = 10
     , def = 10 
-    , pos = (5,5)
+    , position = (0,0)
     , name = "player"
     , glyph = '@'
     }

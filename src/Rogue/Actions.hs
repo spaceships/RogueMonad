@@ -15,10 +15,10 @@ move d = do
     let w      = world st
         es     = enemies st
         p      = player st
-        newPos = pos p `addP` dirToPos d
+        newPos = position p `addP` dirToPos d
 
     when (newPos `isFloor` w && newPos `M.notMember` es)
-        (put st{ player = p{ pos = newPos }})
+        (put st{ player = p{ position = newPos }})
 
 isFloor :: Position -> World -> Bool
 isFloor = isThing Floor
