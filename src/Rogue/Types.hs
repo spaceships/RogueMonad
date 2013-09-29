@@ -15,6 +15,7 @@ data RState = RState
       world   :: World
     , enemies :: M.Map Position Actor
     , player  :: Actor
+    , done    :: Bool
     }
 
 data RConfig = RConfig 

@@ -40,4 +40,4 @@ dirToPos d = case d of
     NW -> (-1,-1)
 
 quit :: Rogue ()
-quit = throwError $ error "Quit"
+quit = modify (\s -> s { done = True } )

@@ -13,8 +13,6 @@ import qualified Data.Map as M
 main :: IO ()
 main = runRogue rogue demoConf demoState
 
-demoWorldSize = (30, 10)
-
 demoConf :: RConfig
 demoConf = RConfig { 
       worldSize = demoWorldSize
@@ -22,6 +20,16 @@ demoConf = RConfig {
     , worldGlyphs = demoGlyphs
     , bindings = demoBindings
     }
+
+demoState :: RState
+demoState = RState { 
+      world = blankWorld demoWorldSize
+    , enemies = M.empty
+    , player = demoChar
+    , done = False
+    }
+
+demoWorldSize = (30, 10)
 
 demoBindings :: Bindings
 demoBindings = [
@@ -35,13 +43,6 @@ demoBindings = [
     , ('u', move NE)
     , ('\ESC', quit)
     ]
-
-demoState :: RState
-demoState = RState { 
-      world = blankWorld demoWorldSize
-    , enemies = M.empty
-    , player = demoChar
-    }
 
 demoChar :: Actor
 demoChar = Actor { 

@@ -15,24 +15,32 @@ import Data.Maybe (fromMaybe)
 
 rogue :: Rogue ()
 rogue = do
-    liftIO hideCursor
-    liftIO clearScreen
-    liftIO $ hSetEcho stdin False
-    liftIO $ hSetBuffering stdin NoBuffering
+    liftIO setTermOpts
+    play
+    liftIO unsetTermOpts
 
-    catchError play (\_ -> return ())
+setTermOpts :: IO ()
+setTermOpts = do 
+    hSetBuffering stdin NoBuffering
+    hideCursor
+    clearScreen
+    hSetEcho stdin False
 
-    liftIO $ hSetEcho stdin True
-    liftIO showCursor
+unsetTermOpts :: IO ()
+unsetTermOpts = do
+    hSetEcho stdin True
+    showCursor
 
 play :: Rogue ()
-
-play = do
+play = untilQuit $ do
     keys <- asks bindings
     update
     k <- liftIO getChar
     fromMaybe (return ()) (lookup k keys)
     play
+
+untilQuit :: Rogue () -> Rogue ()
+untilQuit m = gets done >>= \d -> if d then return () else m
 
 update :: Rogue ()
 update = do
