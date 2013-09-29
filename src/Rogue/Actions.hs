@@ -5,7 +5,7 @@ import Rogue.World
 
 import Data.Array
 import Control.Monad.State
-
+import Control.Monad.Error
 import qualified Data.Map as M
 
 move :: Direction -> Rogue ()
@@ -26,7 +26,7 @@ isFloor = isThing Floor
 isThing :: Thing -> Position -> World -> Bool
 isThing t p w 
     | p `inWorld` w = maybe False (== t) (w ! p)
-    | otherwise      = False          
+    | otherwise     = False          
 
 dirToPos :: Direction -> Position
 dirToPos d = case d of 
@@ -38,3 +38,6 @@ dirToPos d = case d of
     SW -> (-1, 1)
     W  -> (-1, 0)
     NW -> (-1,-1)
+
+quit :: Rogue ()
+quit = throwError $ error "Quit"

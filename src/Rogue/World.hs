@@ -7,9 +7,8 @@ import Control.Monad.Reader
 import Data.Array
 import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
-import qualified Data.Text as T
 
-showWorld :: Rogue T.Text
+showWorld :: Rogue String
 showWorld = do
     st  <- get
     cfg <- ask
@@ -20,19 +19,19 @@ showWorld = do
         screenMax = pos p `addP` dPos
         textArray = fmap (toGlyph (worldGlyphs cfg)) (world st)
         things    = M.insert (pos p) p (enemies st)
-        text      = textWorld textArray things screenMin screenMax
+        str       = textWorld textArray things screenMin screenMax
 
-    return text
+    return str
 
 textWorld :: Array Position Char -> 
              M.Map Position Actor -> 
              Position -> 
              Position -> 
-             T.Text
+             String
 textWorld w things (xmin, ymin) (xmax, ymax) = 
-    T.unlines [ makeLine y | y <- [ymin..ymax] ]
+    unlines [ makeLine y | y <- [ymin..ymax] ]
   where
-    makeLine y = T.pack [ getChar (x,y) | x <- [xmin..xmax] ]
+    makeLine y = [ getChar (x,y) | x <- [xmin..xmax] ]
     getChar p | p `inWorld` w = maybe (w ! p) glyph $ M.lookup p things 
               | otherwise     = ' '
         

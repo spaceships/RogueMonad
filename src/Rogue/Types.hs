@@ -3,7 +3,6 @@ module Rogue.Types where
 import Data.Array
 import Control.Monad.State
 import Control.Monad.Reader
-import Graphics.Vty.LLInput
 
 import qualified Data.Map as M
 
@@ -37,7 +36,7 @@ data Actor = Actor
     , glyph :: Char
     }
 
-type Bindings      = [((Key, [Modifier]), Rogue ())]
+type Bindings      = [(Char, Rogue ())]
 type Position      = (Int, Int)
 type Size          = (Int, Int)
 type World         = Array Position (Maybe Thing)

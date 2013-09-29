@@ -4,16 +4,16 @@ import Rogue.Interface
 import Rogue.Types
 import Rogue.World
 import Rogue.Actions
-import Control.Monad.State
 
-import Graphics.Vty.LLInput
-import qualified Data.Map as Map
+import Control.Monad.State
+import Control.Monad.Error
+import qualified Data.Map as M
 
 
 main :: IO ()
-main = runRogue play demoConf demoState
+main = runRogue rogue demoConf demoState
 
-demoWorldSize = (100, 100)
+demoWorldSize = (30, 10)
 
 demoConf :: RConfig
 demoConf = RConfig { 
@@ -25,38 +25,38 @@ demoConf = RConfig {
 
 demoBindings :: Bindings
 demoBindings = [
-      ((KASCII 'j', []), move S)
-    , ((KASCII 'k', []), move N)
-    , ((KASCII 'h', []), move W)
-    , ((KASCII 'l', []), move E)
-    , ((KASCII 'b', []), move SW)
-    , ((KASCII 'n', []), move SE)
-    , ((KASCII 'y', []), move NW)
-    , ((KASCII 'u', []), move NE)
-    , ((KASCII 'd', [MCtrl]), liftIO $ shutdownUi)
+      ('j', move S)
+    , ('k', move N)
+    , ('h', move W)
+    , ('l', move E)
+    , ('b', move SW)
+    , ('n', move SE)
+    , ('y', move NW)
+    , ('u', move NE)
+    , ('\ESC', quit)
     ]
 
 demoState :: RState
 demoState = RState { 
-                     world = blankWorld demoWorldSize
-                   , enemies = Map.empty
-                   , player = demoChar
-                   }
+      world = blankWorld demoWorldSize
+    , enemies = M.empty
+    , player = demoChar
+    }
 
 demoChar :: Actor
 demoChar = Actor { 
-                   hp = 5
-                 , maxHp = 10
-                 , acc = 10
-                 , def = 10 
-                 , pos = (5,5)
-                 , name = "player"
-                 , glyph = '@'
-                 }
+      hp = 5
+    , maxHp = 10
+    , acc = 10
+    , def = 10 
+    , pos = (5,5)
+    , name = "player"
+    , glyph = '@'
+    }
 
 demoGlyphs :: WorldGlyphMap
-demoGlyphs = Map.fromList [
-                            (Floor, '.')
-                          , (Wall, '#')
-                          ]
+demoGlyphs = M.fromList [
+      (Floor, '.')
+    , (Wall, '#')
+    ]
 
