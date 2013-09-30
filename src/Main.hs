@@ -31,6 +31,7 @@ demoState = RState {
     , player = demoChar
     , done = False
     , stdGen = mkStdGen 0
+    , emptyFloors = []
     }
 
 demoWorldSize = (200, 90)

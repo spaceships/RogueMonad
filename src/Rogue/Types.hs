@@ -13,11 +13,12 @@ runRogue m c s = runReaderT (evalStateT m s) c
 
 data RState = RState 
     {
-      world   :: World
-    , enemies :: M.Map Position Actor
-    , player  :: Actor
-    , done    :: Bool
-    , stdGen  :: StdGen
+      world       :: World
+    , enemies     :: M.Map Position Actor
+    , player      :: Actor
+    , done        :: Bool
+    , stdGen      :: StdGen
+    , emptyFloors :: [Position]
     }
 
 data RConfig = RConfig 

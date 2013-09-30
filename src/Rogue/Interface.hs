@@ -4,7 +4,6 @@ import Rogue.Types
 import Rogue.World
 import Rogue.Actions
 
-import Control.Monad.Error
 import Control.Monad.State
 import Control.Monad.Reader
 import Text.Printf
@@ -16,8 +15,7 @@ import Data.Maybe (fromMaybe)
 rogue :: Rogue ()
 rogue = do
     liftIO setTermOpts
-    w <- createWorld
-    modify (\s -> s { world = w })
+    createWorld
     play
     liftIO unsetTermOpts
 

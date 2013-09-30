@@ -5,6 +5,7 @@ import Rogue.Types
 import Control.Monad.State
 import Control.Monad.Reader
 import Data.Array
+import Data.List
 import Data.Maybe (fromMaybe)
 import qualified Data.Foldable as F
 import qualified Data.Map as M
@@ -64,14 +65,29 @@ room s@(maxX, maxY) =
     array ((0,0), s) [ ((x,y), thing (x,y)) | x <- [0..maxX], y <- [0..maxY] ]
   where
     thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Just Wall
-                | otherwise                                  = Just Floor
+                | otherwise = Just Floor
 
-createWorld :: Rogue World
+createWorld :: Rogue ()
 createWorld = do
     nRooms <- asks maxRooms
     rooms <- replicateM nRooms createRoom
     w <- blankWorld 
-    F.foldrM assignRoom w rooms
+    w' <- F.foldrM assignRoom w rooms
+    positionPlayer 
+    modify (\s -> s { world = w' })
+
+positionPlayer :: Rogue ()
+positionPlayer = do
+    p <- gets player 
+    possiblePositions <- gets emptyFloors
+    n <- randR (0, length possiblePositions - 1)
+    let newPos = possiblePositions !! n
+        possiblePositions' = delete newPos possiblePositions
+    modify (\s -> s { 
+          player = p { position = newPos } 
+        , emptyFloors = possiblePositions'
+        }) 
+
 
 createRoom :: Rogue World
 createRoom = do
@@ -90,14 +106,18 @@ assignRoom :: World -> World -> Rogue World
 assignRoom room w = loop 0
   where
     modifyIndices f = fmap (\(i,x) -> (f i, x))
-    notFloor p      = w ! p /= Just Floor
+    isFloor p       = w ! p == Just Floor
     (_, roomSize)   = bounds room
     loop try | try >= 100 = return w
              | otherwise  = do
         worldSize         <- asks worldSize
         pMin@(xMin, yMin) <- randR ((0,0), worldSize `subP` roomSize)
         let pMax@(xMax, yMax) = pMin `addP` roomSize
-        if all notFloor [pMin, pMax, (xMin, yMax), (xMax, yMin)] then
-            return $ w // modifyIndices (addP pMin) (assocs room)
+        if all (not . isFloor) [pMin, pMax, (xMin, yMax), (xMax, yMin)] then do
+            let room' = modifyIndices (addP pMin) $ assocs room
+            forM_ room' $ \(p,t) -> when (t == Just Floor) $ do
+                floors <- gets emptyFloors
+                modify (\s -> s { emptyFloors = p : floors })
+            return $ w // room'
         else
             loop (try + 1)
