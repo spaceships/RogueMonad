@@ -16,6 +16,8 @@ import Data.Maybe (fromMaybe)
 rogue :: Rogue ()
 rogue = do
     liftIO setTermOpts
+    w <- createWorld
+    modify (\s -> s { world = w })
     play
     liftIO unsetTermOpts
 

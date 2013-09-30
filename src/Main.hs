@@ -17,10 +17,9 @@ demoConf :: RConfig
 demoConf = RConfig { 
       worldSize = demoWorldSize
     , screenSize = (80, 22)
-    , minRooms = 2
     , maxRooms = 10
-    , minRoomSize = (2,2)
-    , maxRoomSize = (5,5)
+    , minRoomSize = (3,3)
+    , maxRoomSize = (50,20)
     , worldGlyphs = demoGlyphs
     , bindings = demoBindings
     }
@@ -34,7 +33,7 @@ demoState = RState {
     , stdGen = mkStdGen 0
     }
 
-demoWorldSize = (30, 10)
+demoWorldSize = (200, 90)
 
 demoBindings :: Bindings
 demoBindings = [

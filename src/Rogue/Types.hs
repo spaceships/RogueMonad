@@ -23,7 +23,6 @@ data RState = RState
 data RConfig = RConfig 
     {
       worldSize   :: Size
-    , minRooms    :: Int
     , maxRooms    :: Int
     , minRoomSize :: Size
     , maxRoomSize :: Size
@@ -60,6 +59,9 @@ instance (Random x, Random y) => Random (x, y) where
         let (x, gen2) = randomR (x1, x2) gen1
             (y, gen3) = randomR (y1, y2) gen2
         in ((x, y), gen3)
+    random gen1 = let (x, gen2) = random gen1
+                      (y, gen3) = random gen2
+                  in ((x,y), gen3)
 
 -- Utility functions -- should probably go somewhere else
 
@@ -88,3 +90,6 @@ randR range = do
     let (a, g') = randomR range g
     modify $ \s -> s { stdGen = g' }
     return a
+
+printR :: Show a => a -> Rogue ()
+printR = liftIO . print

@@ -6,6 +6,7 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Data.Array
 import Data.Maybe (fromMaybe)
+import qualified Data.Foldable as F
 import qualified Data.Map as M
 
 showWorld :: Rogue String
@@ -23,7 +24,6 @@ showWorld = do
         textWorld cfg st = unlines [ makeLine y | y <- [ymin..ymax] ]
 
     return $ textWorld cfg st
-
 
         
 getCharAtPos :: M.Map Position Actor -> World -> WorldGlyphMap -> Position -> Char
@@ -54,6 +54,11 @@ inWorld (x,y) w =
   where
     (_, (maxX, maxY)) = bounds w
 
+inWorldR :: Position -> Rogue Bool
+inWorldR p = do
+    w <- gets world
+    return $ p `inWorld` w
+    
 room :: Size -> World
 room s@(maxX, maxY) = 
     array ((0,0), s) [ ((x,y), thing (x,y)) | x <- [0..maxX], y <- [0..maxY] ]
@@ -61,21 +66,12 @@ room s@(maxX, maxY) =
     thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Just Wall
                 | otherwise                                  = Just Floor
 
--- generate a random number of boxes of random sizes
--- place them in a non-overlapping way on the World
--- connect them
-
-createWorld :: Rogue ()
+createWorld :: Rogue World
 createWorld = do
-    nRooms <- getNumRooms
+    nRooms <- asks maxRooms
     rooms <- replicateM nRooms createRoom
-    return ()
-
-getNumRooms :: Rogue Int
-getNumRooms = do
-    min <- asks minRooms
-    max <- asks maxRooms
-    randR (min, max)
+    w <- blankWorld 
+    F.foldrM assignRoom w rooms
 
 createRoom :: Rogue World
 createRoom = do
@@ -83,3 +79,25 @@ createRoom = do
     max <- asks maxRoomSize
     size <- randR (min, max)
     return $ room size
+
+blankWorld :: Rogue World
+blankWorld = do
+    size@(maxX, maxY) <- asks worldSize
+    return $ array ((0,0), size) 
+        [ ((x,y),Nothing) | y <- [0..maxY], x <- [0..maxX] ]
+
+assignRoom :: World -> World -> Rogue World
+assignRoom room w = loop 0
+  where
+    modifyIndices f = fmap (\(i,x) -> (f i, x))
+    notFloor p      = w ! p /= Just Floor
+    (_, roomSize)   = bounds room
+    loop try | try >= 100 = return w
+             | otherwise  = do
+        worldSize         <- asks worldSize
+        pMin@(xMin, yMin) <- randR ((0,0), worldSize `subP` roomSize)
+        let pMax@(xMax, yMax) = pMin `addP` roomSize
+        if all notFloor [pMin, pMax, (xMin, yMax), (xMax, yMin)] then
+            return $ w // modifyIndices (addP pMin) (assocs room)
+        else
+            loop (try + 1)
