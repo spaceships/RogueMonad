@@ -88,7 +88,6 @@ positionPlayer = do
         , emptyFloors = possiblePositions'
         }) 
 
-
 createRoom :: Rogue World
 createRoom = do
     min <- asks minRoomSize
@@ -102,10 +101,10 @@ blankWorld = do
     return $ array ((0,0), size) 
         [ ((x,y),Nothing) | y <- [0..maxY], x <- [0..maxX] ]
 
+-- perhaps a new room must be connected to an existing room with a tunnel
 assignRoom :: World -> World -> Rogue World
 assignRoom room w = loop 0
   where
-    modifyIndices f = fmap (\(i,x) -> (f i, x))
     isFloor p       = w ! p == Just Floor
     (_, roomSize)   = bounds room
     loop try | try >= 100 = return w
@@ -113,11 +112,27 @@ assignRoom room w = loop 0
         worldSize         <- asks worldSize
         pMin@(xMin, yMin) <- randR ((0,0), worldSize `subP` roomSize)
         let pMax@(xMax, yMax) = pMin `addP` roomSize
-        if all (not . isFloor) [pMin, pMax, (xMin, yMax), (xMax, yMin)] then do
-            let room' = modifyIndices (addP pMin) $ assocs room
+            room' = modifyIndices (addP pMin) $ assocs room
+
+        (okToPlace, room') <- tunnelable w (assocs room) pMin
+        if okToPlace then do
+        --if all (not . isFloor) [pMin, pMax, (xMin, yMax), (xMax, yMin)] then do
+
+            -- add new empty floors to emptyFloors list
             forM_ room' $ \(p,t) -> when (t == Just Floor) $ do
                 floors <- gets emptyFloors
                 modify (\s -> s { emptyFloors = p : floors })
+
             return $ w // room'
+            -- need to ensure access to all Floor
         else
             loop (try + 1)
+
+tunnelable :: World -> [(Position, Maybe Thing)] -> Position -> Rogue (Bool, [(Position, Maybe Thing)])
+tunnelable w room p = do
+    -- pick random point on each wall - at least one connection to another room
+
+    return (True, modifyIndices (addP p) room)
+
+modifyIndices :: Functor f => (a -> b) -> f (a,c) -> f (b,c)
+modifyIndices f = fmap (\(i,x) -> (f i, x))
