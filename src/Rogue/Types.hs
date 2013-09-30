@@ -1,6 +1,7 @@
 module Rogue.Types where
 
 import Data.Array
+import System.Random
 import Control.Monad.State
 import Control.Monad.Reader
 
@@ -16,11 +17,16 @@ data RState = RState
     , enemies :: M.Map Position Actor
     , player  :: Actor
     , done    :: Bool
+    , stdGen  :: StdGen
     }
 
 data RConfig = RConfig 
     {
       worldSize   :: Size
+    , minRooms    :: Int
+    , maxRooms    :: Int
+    , minRoomSize :: Size
+    , maxRoomSize :: Size
     , screenSize  :: Size
     , worldGlyphs :: WorldGlyphMap
     , bindings    :: Bindings
@@ -49,6 +55,12 @@ data Thing = Floor | Wall
 data Direction = N | NE | E | SE | S | SW | W | NW
     deriving (Ord, Eq, Show, Enum)
 
+instance (Random x, Random y) => Random (x, y) where
+    randomR ((x1, y1), (x2, y2)) gen1 =
+        let (x, gen2) = randomR (x1, x2) gen1
+            (y, gen3) = randomR (y1, y2) gen2
+        in ((x, y), gen3)
+
 -- Utility functions -- should probably go somewhere else
 
 liftP :: (a -> b) -> (a, a) -> (b, b)
@@ -62,3 +74,17 @@ addP = liftP2 (+)
 
 subP :: Position -> Position -> Position
 subP = liftP2 (-)
+
+rand :: Random a => Rogue a
+rand = do
+    g <- gets stdGen 
+    let (a, g') = random g
+    modify $ \s -> s { stdGen = g' }
+    return a
+
+randR :: Random a => (a,a) -> Rogue a
+randR range = do
+    g <- gets stdGen 
+    let (a, g') = randomR range g
+    modify $ \s -> s { stdGen = g' }
+    return a
