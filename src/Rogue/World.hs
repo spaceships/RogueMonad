@@ -72,7 +72,7 @@ createWorld = do
     nRooms <- asks maxRooms
     rooms <- replicateM nRooms createRoom
     w <- blankWorld 
-    w' <- F.foldrM assignRoom w rooms
+    w' <- F.foldrM addRoom w rooms
     positionPlayer 
     modify (\s -> s { world = w' })
 
@@ -101,9 +101,9 @@ blankWorld = do
     return $ array ((0,0), size) 
         [ ((x,y),Nothing) | y <- [0..maxY], x <- [0..maxX] ]
 
--- perhaps a new room must be connected to an existing room with a tunnel
-assignRoom :: World -> World -> Rogue World
-assignRoom room w = loop 0
+-- assigns a room to world randomly in non-overlapping way
+addRoom :: World -> World -> Rogue World
+addRoom room w = loop 0
   where
     isFloor p       = w ! p == Just Floor
     (_, roomSize)   = bounds room
@@ -113,18 +113,12 @@ assignRoom room w = loop 0
         pMin@(xMin, yMin) <- randR ((0,0), worldSize `subP` roomSize)
         let pMax@(xMax, yMax) = pMin `addP` roomSize
             room' = modifyIndices (addP pMin) $ assocs room
-
-        (okToPlace, room') <- tunnelable w (assocs room) pMin
-        if okToPlace then do
-        --if all (not . isFloor) [pMin, pMax, (xMin, yMax), (xMax, yMin)] then do
-
+        if all (not . isFloor) [pMin, pMax, (xMin, yMax), (xMax, yMin)] then do
             -- add new empty floors to emptyFloors list
             forM_ room' $ \(p,t) -> when (t == Just Floor) $ do
                 floors <- gets emptyFloors
                 modify (\s -> s { emptyFloors = p : floors })
-
             return $ w // room'
-            -- need to ensure access to all Floor
         else
             loop (try + 1)
 
@@ -136,3 +130,15 @@ tunnelable w room p = do
 
 modifyIndices :: Functor f => (a -> b) -> f (a,c) -> f (b,c)
 modifyIndices f = fmap (\(i,x) -> (f i, x))
+
+-- add a room to a world in a connected way either via a tunnel or a door
+--connectRoom :: World -> World -> Rogue World
+--connectRoom room w = do
+    --floors <- gets emptyFloors
+    --if null floors then
+        --addRoom room w
+    --else do
+
+-- choose a Floor with enough free space nearby for room
+-- put room in that free space
+-- connect room with door or tunnel
