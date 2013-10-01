@@ -40,7 +40,7 @@ play = untilQuit $ do
     play
 
 untilQuit :: Rogue () -> Rogue ()
-untilQuit m = gets done >>= \d -> if d then return () else m
+untilQuit m = gets done >>= \d -> unless d m
 
 update :: Rogue ()
 update = do

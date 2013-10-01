@@ -4,6 +4,7 @@ import Rogue.Types
 
 import Control.Monad.State
 import Control.Monad.Reader
+import Control.Arrow
 import Data.Array
 import Data.List
 import Data.Maybe (fromMaybe)
@@ -123,13 +124,13 @@ addRoom room w = loop 0
             loop (try + 1)
 
 tunnelable :: World -> [(Position, Maybe Thing)] -> Position -> Rogue (Bool, [(Position, Maybe Thing)])
-tunnelable w room p = do
+tunnelable w room p =
     -- pick random point on each wall - at least one connection to another room
 
     return (True, modifyIndices (addP p) room)
 
 modifyIndices :: Functor f => (a -> b) -> f (a,c) -> f (b,c)
-modifyIndices f = fmap (\(i,x) -> (f i, x))
+modifyIndices f = fmap (first f)
 
 -- add a room to a world in a connected way either via a tunnel or a door
 --connectRoom :: World -> World -> Rogue World
