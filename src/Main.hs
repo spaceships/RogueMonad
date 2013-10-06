@@ -5,6 +5,7 @@ import Rogue.Types
 import Rogue.World
 import Rogue.Actions
 
+import Data.Array
 import System.Random
 import Control.Monad.State
 import Control.Monad.Error
@@ -19,19 +20,21 @@ demoConf = RConfig {
     , screenSize = (80, 22)
     , maxRooms = 10
     , minRoomSize = (3,3)
-    , maxRoomSize = (50,20)
+    , maxRoomSize = (10,6)
     , worldGlyphs = demoGlyphs
     , bindings = demoBindings
+    , threshold = 3 / 4
     }
 
 demoState :: RState
 demoState = RState { 
-      world = room demoWorldSize
+      world = array ((0,0), demoWorldSize) [((x,y), Nothing) | x <- [0..10], y <- [0..10]]
     , enemies = M.empty
     , player = demoChar
     , done = False
     , stdGen = mkStdGen 0
-    , emptyFloors = []
+    , floors = []
+    , walls = []
     }
 
 demoWorldSize = (200, 90)

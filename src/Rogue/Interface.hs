@@ -12,10 +12,12 @@ import System.IO
 import Data.Maybe (fromMaybe)
 
 
+
 rogue :: Rogue ()
 rogue = do
     liftIO setTermOpts
     createWorld
+    positionPlayer
     play
     liftIO unsetTermOpts
 
@@ -52,9 +54,9 @@ update = do
 
 getStatusBar :: Rogue String
 getStatusBar = do
-    Actor hp maxHp acc def _ _ g <- gets player
+    Actor hp maxHp acc def position _ g <- gets player
     (width, _) <- asks screenSize
-    let info = printf "| %c | acc:%d | def: %d | hp: %d/%d |" g acc def hp maxHp
+    let info = printf "| %c | acc:%d | def: %d | hp: %d/%d | (%d,%d) |" g acc def hp maxHp (fst position) (snd position)
     return $ center info width
 
 center :: String -> Int -> String

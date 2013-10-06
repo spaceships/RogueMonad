@@ -13,12 +13,13 @@ runRogue m c s = runReaderT (evalStateT m s) c
 
 data RState = RState 
     {
-      world       :: World
-    , enemies     :: M.Map Position Actor
-    , player      :: Actor
-    , done        :: Bool
-    , stdGen      :: StdGen
-    , emptyFloors :: [Position]
+      world   :: World
+    , enemies :: M.Map Position Actor
+    , player  :: Actor
+    , done    :: Bool
+    , stdGen  :: StdGen
+    , floors  :: [Position]
+    , walls   :: [Position]
     }
 
 data RConfig = RConfig 
@@ -30,6 +31,7 @@ data RConfig = RConfig
     , screenSize  :: Size
     , worldGlyphs :: WorldGlyphMap
     , bindings    :: Bindings
+    , threshold   :: Float
     }
 
 data Actor = Actor 
@@ -91,6 +93,11 @@ randR range = do
     let (a, g') = randomR range g
     modify $ \s -> s { stdGen = g' }
     return a
+
+randElem :: [a] -> Rogue a
+randElem xs = do
+    n <- randR (0, length xs - 1)
+    return (xs !! n)
 
 printR :: Show a => a -> Rogue ()
 printR = liftIO . print
