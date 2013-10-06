@@ -23,7 +23,8 @@ demoConf = RConfig {
     , maxRoomSize = (10,6)
     , worldGlyphs = demoGlyphs
     , bindings = demoBindings
-    , threshold = 3 / 4
+    , tunnelThreshold = 3 / 4
+    , overlapAllowed = True
     }
 
 demoState :: RState

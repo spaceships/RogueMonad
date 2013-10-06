@@ -51,10 +51,10 @@ toGlyph _ Nothing   = ' '
 
 inWorld :: Position -> Array Position a -> Bool
 inWorld (x,y) w = 
-    x >= 0 && 
-    y >= 0 && 
-    x <= maxX && 
-    y <= maxY
+    x > 0 && 
+    y > 0 && 
+    x < maxX && 
+    y < maxY
   where
     (_, (maxX, maxY)) = bounds w
 
@@ -121,25 +121,28 @@ tunnelDirection pos = do
                 let thing = w ! directionToVector d pos
                 guard $ isNothing thing
                 return d
-    printR $ show ds
 
     if length ds > 0 then do
         d <- randElem ds
-        printR $ "tunnelDirection " ++ show pos ++ "=" ++ show d
         return (Just d)
     else
         return Nothing
 
+
 addToWorld :: [(Position, Maybe Thing)] -> Rogue ()
+
 addToWorld [] = return ()
-addToWorld ((pos, thing):ts) = gets world >>= \w -> when (pos `inWorld` w) $ do
-    case (w ! pos) of
-        Nothing -> addThing (pos, thing) w
-        Just Wall -> when (thing == Just Floor) $ do
-            removeWall pos
-            addThing (pos,thing) w
-        _ -> return ()
-    addToWorld ts
+
+addToWorld ((pos, thing):ts) = do
+    w <- gets world
+    when (pos `inWorld` w) $ do
+        case (w ! pos) of
+            Nothing -> addThing (pos, thing) w
+            Just Wall -> when (thing == Just Floor) $ do
+                removeWall pos
+                addThing (pos,thing) w
+            _ -> return ()
+        addToWorld ts
   where
     addThing (p,t) w = do
         if t == Just Wall then do
@@ -154,43 +157,59 @@ addToWorld ((pos, thing):ts) = gets world >>= \w -> when (pos `inWorld` w) $ do
         modify (\s -> s { walls = delete p walls })
         
 
--- TODO check that it is in world
-createRoom :: Direction -> Position -> Rogue ()
-createRoom dir pos@(px,py) = do
-    printR $ "createRoom dir=" ++ show dir ++ " pos=" ++ show pos
-    min  <- asks minRoomSize
-    max  <- asks maxRoomSize
-    size@(rx,ry) <- randR (min, max)
-    printR $ "size=" ++ show size
-    let r = room size
+fitsInWorld :: [(Position, Maybe Thing)] -> Rogue Bool
+fitsInWorld thgs = do
+    w <- gets world
+    if not $ all (`inWorld` w) (fst <$> thgs) then
+        return False
+    else do
+        overlapAllowed <- asks overlapAllowed
+        if overlapAllowed then
+            return True
+        else do
+            -- check all elements for overlap
+            return $ any isJust $ (w !) <$> (fst <$> thgs)
+            
         
-    r' <- case dir of
-        N -> do n <- randR (1,rx-1)
-                return $ fmap (first (addP (px - n, py - ry))) r
-        S -> do n <- randR (1,rx-1)
-                return $ fmap (first (addP (px - n, py))) r
-        E -> do n <- randR (1,ry-1)
-                return $ fmap (first (addP (px, py - n))) r
-        W -> do n <- randR (1,ry-1)
-                return $ fmap (first (addP (px - rx, py - n))) r
 
-    addToWorld r'
+createRoom :: Direction -> Position -> Rogue Bool
+createRoom dir pos@(px,py) = roomLoop 0 
+  where 
+    roomLoop n = if (n >= 10) then return False else do
+        min  <- asks minRoomSize
+        max  <- asks maxRoomSize
+        size@(rx,ry) <- randR (min, max)
+        let r = room size
+            
+        r' <- case dir of
+            N -> do n <- randR (1,rx-1)
+                    return $ fmap (first (addP (px - n, py - ry))) r
+            S -> do n <- randR (1,rx-1)
+                    return $ fmap (first (addP (px - n, py))) r
+            E -> do n <- randR (1,ry-1)
+                    return $ fmap (first (addP (px, py - n))) r
+            W -> do n <- randR (1,ry-1)
+                    return $ fmap (first (addP (px - rx, py - n))) r
+
+        fits <- fitsInWorld r'
+        if fits then do
+            addToWorld r'
+            return True
+        else do
+            roomLoop (n+1)        
 
 createWorld :: Rogue ()
 createWorld = do
     clearWorld
     makeInitialRoom
-    printR "Created initial room, entering tunnelLoop"
     tunnelLoop 0
   where
-    tunnelLoop n = if n > 100 then printR "ending tunnelLoop" else do
-        printR $ "tunnelLoop n=" ++ show n
+    tunnelLoop n = when (n < 100) $ do
         walls <- gets walls
         when (length walls > 0) $ do 
             wallsWithAdjacentFloors <- filterM adjacentFloor walls
             wall <- randElem wallsWithAdjacentFloors
             dir <- tunnelDirection wall
-            printR $ "wall:" ++ show wall ++ " dir:" ++ show dir
             when (isJust dir) (tunnel wall $ fromJust dir)
             tunnelLoop (n + 1)
 
@@ -201,24 +220,37 @@ adjacentFloor pos = do
 
 tunnel :: Position -> Direction -> Rogue ()
 tunnel pos dir = do
-    printR $ "* tunnel called with dir=" ++ show dir ++ " pos=" ++ show pos
-    addToWorld $ (pos, Just Floor) : [(pos `addP` (x,y), Just Wall) | x <- [-1,0,1], y <- [-1,0,1], x /= 0, y /= 0]
-    k <- asks threshold
+
+    let newThings = do
+            x <- [-1,0,1]
+            y <- [-1,0,1]
+            guard $ x /= 0 && y /= 0
+            return (pos `addP` (x,y), Just Wall)
+
+    addToWorld $ (pos, Just Floor) : newThings
+    k <- asks tunnelThreshold
     n <- randR (0,10)
+
     if n > k * 10 then do
-        printR $ "tunnel: creating room " ++ show dir ++ " of pos=" ++ show pos
-        -- make room, see if it fits, otherwise keep tunneling
-        createRoom dir pos
+        ok <- createRoom dir pos
+        when (not ok) endTunnel
+
     else if n < k * 10 then do
-        printR $ "tunnel: continuing " ++ show dir
-        tunnel (directionToVector dir pos) dir
+        let newPos = (directionToVector dir pos)
+        ok <- inWorldR newPos
+        if ok then
+            tunnel newPos dir
+        else
+            endTunnel
+            
+
     else do -- n == k
         newDir <- newDirection
-        printR $ "tunnel: changing direction from " ++ show dir ++ " to " ++ show newDir
         tunnel pos newDir
 
   where 
     newDirection = randElem (if dir `elem` [N,S] then [E,W] else [N,S])
+    endTunnel = addToWorld [(pos, Just Wall)]
 
 makeInitialRoom :: Rogue ()
 makeInitialRoom = do
@@ -226,7 +258,8 @@ makeInitialRoom = do
     maxSize <- asks maxRoomSize
     worldSize <- asks worldSize
     pos <- randR ((0,0), worldSize `subP` maxSize) 
-    createRoom dir pos
+    _ <- createRoom dir pos
+    return ()
 
 step :: Rogue ()
 step = do
