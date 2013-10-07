@@ -190,27 +190,6 @@ createRoom dir pos@(px,py) = roomLoop 0
         else do
             roomLoop (n+1)        
 
-createWorld :: Rogue ()
-createWorld = do
-    clearWorld
-    makeInitialRoom
-    tunnelLoop 0
-
-tunnelLoop :: Int -> Rogue ()
-tunnelLoop n = do
-    max <- asks numTunnels
-    when (n < max) $ do
-        walls <- gets walls
-        wallsWithAdjacentFloors <- filterM adjacentFloor walls
-        theWall <- randElem wallsWithAdjacentFloors
-        dir <- tunnelDirection theWall
-        when (isJust dir) $ do
-            save <- get
-            okOnly <- asks onlyTerminalTunnels
-            ok <- tunnel theWall $ fromJust dir
-            when (okOnly && not ok) $ put save
-        tunnelLoop (n + 1)
-
 adjacentFloor :: Position -> Rogue Bool
 adjacentFloor pos = do
     w <- gets world
