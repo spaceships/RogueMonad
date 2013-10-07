@@ -34,6 +34,7 @@ data RConfig = RConfig
     , tunnelThreshold :: Float
     , roomOverlapAllowed :: Bool
     , numTunnels :: Int
+    , onlyTerminalTunnels :: Bool
     }
 
 data Actor = Actor 

@@ -63,9 +63,6 @@ inWorldR p = do
     w <- gets world
     return $ p `inWorld` w
     
-getFromWorld :: Position -> World -> Maybe Thing
-getFromWorld p w = if p `inWorld` w then w ! p else Nothing
-
 positionPlayer :: Rogue ()
 positionPlayer = do
     p <- gets player 
@@ -74,11 +71,9 @@ positionPlayer = do
         return ()
     else do
         newPos <- randElem possiblePositions
-        modify (\s -> s { 
-                          player = p { position = newPos } 
+        modify (\s -> s { player = p { position = newPos } 
                         , floors = delete newPos possiblePositions
-                        }
-               ) 
+                        }) 
 
 
 room :: Size -> [(Position, Maybe Thing)]
@@ -114,23 +109,18 @@ directionToVector W = directionVectors !! 3
 tunnelDirection :: Position -> Rogue (Maybe Direction)
 tunnelDirection pos = do
     w <- gets world 
-
     let ds = do d <- [N,S,E,W] 
                 let thing = w ! directionToVector d pos
                 guard $ isNothing thing
                 return d
-
     if length ds > 0 then do
         d <- randElem ds
         return (Just d)
     else
         return Nothing
 
-
 addToWorld :: [(Position, Maybe Thing)] -> Rogue ()
-
 addToWorld [] = return ()
-
 addToWorld ((pos, thing):ts) = do
     w <- gets world
     when (pos `inWorld` w) $ do
@@ -164,10 +154,15 @@ fitsInWorld thgs = do
         overlapAllowed <- asks roomOverlapAllowed
         if overlapAllowed then
             return True
-        else do
-            -- check all elements for overlap
-            let ts = [w ! p | p <- (fst <$> thgs)]
-            return $ all isNothing ts
+        else return $ all id $ do
+            (p,nt) <- thgs
+            let wt = w ! p
+            if isNothing wt then
+                return True
+            else if (nt == Just Wall) && (wt == Just Wall) then
+                return True
+            else
+                return False
 
 createRoom :: Direction -> Position -> Rogue Bool
 createRoom dir pos@(px,py) = roomLoop 0 
@@ -209,7 +204,11 @@ tunnelLoop n = do
         wallsWithAdjacentFloors <- filterM adjacentFloor walls
         theWall <- randElem wallsWithAdjacentFloors
         dir <- tunnelDirection theWall
-        when (isJust dir) (tunnel theWall $ fromJust dir)
+        when (isJust dir) $ do
+            save <- get
+            okOnly <- asks onlyTerminalTunnels
+            ok <- tunnel theWall $ fromJust dir
+            when (okOnly && not ok) $ put save
         tunnelLoop (n + 1)
 
 adjacentFloor :: Position -> Rogue Bool
@@ -217,24 +216,27 @@ adjacentFloor pos = do
     w <- gets world
     return $ any (== Just Floor) $ fmap (w !) (directionVectors <*> pure pos)
 
-tunnel :: Position -> Direction -> Rogue ()
+tunnel :: Position -> Direction -> Rogue Bool
 tunnel pos dir = do
     k <- asks tunnelThreshold
     n <- randR (0,10)
     if n > k * 10 then do
         ok <- createRoom dir pos
-        if ok then 
+        if ok then do
             addFloor 
-        else
+            return True
+        else do
             endTunnel
+            return False
     else do
         let newPos = directionToVector dir pos
         ok <- inWorldR newPos
         if ok then do
             addFloor
             tunnel newPos dir
-        else
+        else do
             endTunnel
+            return False
   where 
     otherDirections = if dir `elem` [N,S] then [E,W] else [N,S]
     newDirection = randElem otherDirections

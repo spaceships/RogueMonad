@@ -19,13 +19,14 @@ demoConf = RConfig {
       worldSize = demoWorldSize
     , screenSize = (80, 22)
     , maxRooms = 10
-    , minRoomSize = (3,3)
-    , maxRoomSize = (15,8)
+    , minRoomSize = (7,5)
+    , maxRoomSize = (20,14)
     , worldGlyphs = demoGlyphs
     , bindings = demoBindings
     , tunnelThreshold = 3 / 4
     , roomOverlapAllowed = False
     , numTunnels = 100
+    , onlyTerminalTunnels = True
     }
 
 demoState :: RState
