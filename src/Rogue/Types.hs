@@ -31,8 +31,9 @@ data RConfig = RConfig
     , screenSize  :: Size
     , worldGlyphs :: WorldGlyphMap
     , bindings    :: Bindings
-    , tunnelThreshold   :: Float
-    , overlapAllowed :: Bool
+    , tunnelThreshold :: Float
+    , roomOverlapAllowed :: Bool
+    , numTunnels :: Int
     }
 
 data Actor = Actor 

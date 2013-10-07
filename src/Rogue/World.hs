@@ -88,15 +88,13 @@ room s@(maxX, maxY) =
     thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Just Wall
                 | otherwise = Just Floor
 
-blankWorld :: Rogue World
-blankWorld = do
-    size@(maxX, maxY) <- asks worldSize
-    return $ array ((0,0), size) 
-        [ ((x,y),Nothing) | y <- [0..maxY], x <- [0..maxX] ]
-
 clearWorld :: Rogue ()
 clearWorld = do
-    w <- blankWorld
+    size@(maxX, maxY) <- asks worldSize
+    let w = array ((0,0), size) $ do
+            x <- [0..maxX] 
+            y <- [0..maxY]
+            return ((x,y),Nothing)
     modify (\s -> s { world = w })
 
 directionVectors :: [Position -> Position]
@@ -163,19 +161,18 @@ fitsInWorld thgs = do
     if not $ all (`inWorld` w) (fst <$> thgs) then
         return False
     else do
-        overlapAllowed <- asks overlapAllowed
+        overlapAllowed <- asks roomOverlapAllowed
         if overlapAllowed then
             return True
         else do
             -- check all elements for overlap
-            return $ any isJust $ (w !) <$> (fst <$> thgs)
-            
-        
+            let ts = [w ! p | p <- (fst <$> thgs)]
+            return $ all isNothing ts
 
 createRoom :: Direction -> Position -> Rogue Bool
 createRoom dir pos@(px,py) = roomLoop 0 
   where 
-    roomLoop n = if (n >= 10) then return False else do
+    roomLoop n = if (n >= 3) then return False else do
         min  <- asks minRoomSize
         max  <- asks maxRoomSize
         size@(rx,ry) <- randR (min, max)
@@ -203,15 +200,17 @@ createWorld = do
     clearWorld
     makeInitialRoom
     tunnelLoop 0
-  where
-    tunnelLoop n = when (n < 100) $ do
+
+tunnelLoop :: Int -> Rogue ()
+tunnelLoop n = do
+    max <- asks numTunnels
+    when (n < max) $ do
         walls <- gets walls
-        when (length walls > 0) $ do 
-            wallsWithAdjacentFloors <- filterM adjacentFloor walls
-            wall <- randElem wallsWithAdjacentFloors
-            dir <- tunnelDirection wall
-            when (isJust dir) (tunnel wall $ fromJust dir)
-            tunnelLoop (n + 1)
+        wallsWithAdjacentFloors <- filterM adjacentFloor walls
+        theWall <- randElem wallsWithAdjacentFloors
+        dir <- tunnelDirection theWall
+        when (isJust dir) (tunnel theWall $ fromJust dir)
+        tunnelLoop (n + 1)
 
 adjacentFloor :: Position -> Rogue Bool
 adjacentFloor pos = do
@@ -220,37 +219,28 @@ adjacentFloor pos = do
 
 tunnel :: Position -> Direction -> Rogue ()
 tunnel pos dir = do
-
-    let newThings = do
-            x <- [-1,0,1]
-            y <- [-1,0,1]
-            guard $ x /= 0 && y /= 0
-            return (pos `addP` (x,y), Just Wall)
-
-    addToWorld $ (pos, Just Floor) : newThings
     k <- asks tunnelThreshold
     n <- randR (0,10)
-
     if n > k * 10 then do
         ok <- createRoom dir pos
-        when (not ok) endTunnel
-
-    else if n < k * 10 then do
-        let newPos = (directionToVector dir pos)
+        if ok then 
+            addFloor 
+        else
+            endTunnel
+    else do
+        let newPos = directionToVector dir pos
         ok <- inWorldR newPos
-        if ok then
+        if ok then do
+            addFloor
             tunnel newPos dir
         else
             endTunnel
-            
-
-    else do -- n == k
-        newDir <- newDirection
-        tunnel pos newDir
-
   where 
-    newDirection = randElem (if dir `elem` [N,S] then [E,W] else [N,S])
-    endTunnel = addToWorld [(pos, Just Wall)]
+    otherDirections = if dir `elem` [N,S] then [E,W] else [N,S]
+    newDirection = randElem otherDirections
+    sideWalls = [(directionToVector d pos, Just Wall) | d <- otherDirections]
+    addFloor = addToWorld $ (pos, Just Floor) : sideWalls
+    endTunnel = addToWorld $ (pos, Just Wall) : sideWalls
 
 makeInitialRoom :: Rogue ()
 makeInitialRoom = do
@@ -258,12 +248,5 @@ makeInitialRoom = do
     maxSize <- asks maxRoomSize
     worldSize <- asks worldSize
     pos <- randR ((0,0), worldSize `subP` maxSize) 
-    _ <- createRoom dir pos
-    return ()
-
-step :: Rogue ()
-step = do
-    printR "step>"
-    c <- liftIO getChar
-    when (c == '\ESC') (error "execution aborted")
-
+    ok <- createRoom dir pos
+    when (not ok) makeInitialRoom
