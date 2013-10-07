@@ -11,8 +11,6 @@ import System.Console.ANSI
 import System.IO
 import Data.Maybe
 
-
-
 rogue :: Rogue ()
 rogue = do
     liftIO setTermOpts
@@ -50,7 +48,6 @@ update = do
     status <- getStatusBar
     world  <- showWorld
     liftIO $ putStr (status ++ world)
-
 
 getStatusBar :: Rogue String
 getStatusBar = do

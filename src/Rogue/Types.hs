@@ -25,7 +25,6 @@ data RState = RState
 data RConfig = RConfig 
     {
       worldSize   :: Size
-    , maxRooms    :: Int
     , minRoomSize :: Size
     , maxRoomSize :: Size
     , screenSize  :: Size

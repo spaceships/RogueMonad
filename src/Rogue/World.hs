@@ -7,10 +7,8 @@ import Control.Monad.Reader
 import Control.Arrow
 import Control.Applicative
 import Data.Array
-import Data.Functor
 import Data.List
 import Data.Maybe
-import qualified Data.Foldable as F
 import qualified Data.Map as M
 
 showWorld :: Rogue String
