@@ -31,9 +31,81 @@ showWorld = do
 getCharAtPos :: M.Map Position Actor -> World -> WorldGlyphMap -> Position -> Char
 getCharAtPos things w gm pos = 
     if pos `inWorld` w then 
-        maybe (toGlyph gm $ w ! pos) glyph $ M.lookup pos things 
+        maybe worldThing glyph $ M.lookup pos things 
     else
         ' ' 
+  where 
+    worldThing = let t = w ! pos in 
+                 if t == Just Wall then 
+                    fancyGetWall pos w 
+                 else 
+                    toGlyph gm t
+
+--- assuming there is a wall at pos, get the appropriate unicode char
+fancyGetWall :: Position -> World -> Char
+fancyGetWall pos w = case wallDirs of
+    [N] -> '╨' 
+    [S] -> '╥' 
+    [E] -> '╞'
+    [W] -> '╡'
+    [N,S] -> '║'
+    [N,E] -> '╚'
+    [N,W] -> '╝'
+    [S,E] -> '╔'
+    [S,W] -> '╗'
+    [E,W] -> '═'
+
+    [N,S,E] -> case fd of
+        [W] -> '║'
+        [W,NW] -> '║'
+        [W,SW] -> '║'
+        [W,NW,SW] -> '║'
+        [NE] -> '╚'
+        [SE] -> '╔'
+        _ -> '╠'
+
+    [N,S,W] -> case fd of
+        [E] -> '║'
+        [E,NE] -> '║'
+        [E,SE] -> '║'
+        [E,NE,SE] -> '║'
+        [NW] -> '╝'
+        [SW] -> '╗'
+        _ -> '╣'
+        
+    [N,E,W] -> case fd of
+        [S] -> '═'
+        [S,SE] -> '═'
+        [S,SW] -> '═'
+        [S,SE,SW] -> '═'
+        [NE] -> '╚'
+        [NW] -> '╝'
+        _ -> '╩'
+
+    [S,E,W] -> case fd of
+        [N] -> '═' 
+        [N,NE] -> '═' 
+        [N,NW] -> '═' 
+        [N,NE,NW] -> '═' 
+        [SE] -> '╔'
+        [SW] -> '╗'
+        _    -> '╦'
+
+    [N,S,E,W] -> case fd of
+        [NE] -> '╚'
+        [NW] -> '╝'
+        [SE] -> '╔'
+        [SW] -> '╗'
+        [NW,SW] -> '╣'
+        [NE,SE] -> '╠'
+        [NE,NW] -> '╩'
+        [SE,SW] -> '╦'
+        _    -> '╬'
+  where
+    checkDirs = directionsAndDirectionVectors pos
+    adjacentThings = map (second (w!)) checkDirs
+    wallDirs = map fst $ filter (\(d,t) -> d `elem` [N,S,E,W] && t == Just Wall) adjacentThings
+    fd = map fst $ filter (\(d,t) -> t == Just Floor) adjacentThings
 
 screenDimensions :: Rogue (Position, Position)
 screenDimensions = do
@@ -97,6 +169,22 @@ directionVectors = [north,south,east,west]
     south = addP (0,1)
     east  = addP (1,0)
     west  = addP (-1,0)
+
+allDirectionVectors :: [Position -> Position]
+allDirectionVectors = [north,south,east,west,northeast,northwest,southeast,southwest]
+  where 
+    north = addP (0,-1)
+    south = addP (0,1)
+    east  = addP (1,0)
+    west  = addP (-1,0)
+    northeast = addP (1,-1)
+    northwest = addP (-1,-1)
+    southeast = addP (1,1)
+    southwest = addP (-1,1)
+
+
+directionsAndDirectionVectors :: Position -> [(Direction, Position)]
+directionsAndDirectionVectors pos = zip [N,S,E,W,NE,NW,SE,SW] (allDirectionVectors <*> pure pos)
 
 directionToVector :: Direction -> Position -> Position
 directionToVector N = directionVectors !! 0
