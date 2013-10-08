@@ -67,39 +67,3 @@ instance (Random x, Random y) => Random (x, y) where
     random gen1 = let (x, gen2) = random gen1
                       (y, gen3) = random gen2
                   in ((x,y), gen3)
-
--- Utility functions -- should probably go somewhere else
-
-liftP :: (a -> b) -> (a, a) -> (b, b)
-liftP f (a, b) = (f a, f b)
-
-liftP2 :: (a -> b -> c) -> (a, a) -> (b, b) -> (c, c)
-liftP2 f (ax, ay) (bx, by) = (f ax bx, f ay by)
-
-addP :: Position -> Position -> Position
-addP = liftP2 (+)
-
-subP :: Position -> Position -> Position
-subP = liftP2 (-)
-
-rand :: Random a => Rogue a
-rand = do
-    g <- gets stdGen 
-    let (a, g') = random g
-    modify $ \s -> s { stdGen = g' }
-    return a
-
-randR :: Random a => (a,a) -> Rogue a
-randR range = do
-    g <- gets stdGen 
-    let (a, g') = randomR range g
-    modify $ \s -> s { stdGen = g' }
-    return a
-
-randElem :: [a] -> Rogue a
-randElem xs = do
-    n <- randR (0, length xs - 1)
-    return (xs !! n)
-
-printR :: Show a => a -> Rogue ()
-printR = liftIO . print

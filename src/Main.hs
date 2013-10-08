@@ -1,9 +1,10 @@
 module Main where
 
-import Rogue.Interface
 import Rogue.Types
+import Rogue.Util
 import Rogue.World
 import Rogue.Actions
+import Rogue.Interface
 
 import Data.Array
 import System.Random

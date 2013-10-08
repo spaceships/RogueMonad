@@ -1,6 +1,7 @@
 module Rogue.World where
 
 import Rogue.Types
+import Rogue.Util
 
 import Control.Monad.State
 import Control.Monad.Reader
@@ -137,9 +138,7 @@ positionPlayer :: Rogue ()
 positionPlayer = do
     p <- gets player 
     possiblePositions <- gets floors
-    if length possiblePositions == 0 then
-        return ()
-    else do
+    unless (null possiblePositions) $ do
         newPos <- randElem possiblePositions
         modify (\s -> s { player = p { position = newPos } 
                         , floors = delete newPos possiblePositions
@@ -163,15 +162,7 @@ clearWorld = do
     modify (\s -> s { world = w })
 
 directionVectors :: [Position -> Position]
-directionVectors = [north,south,east,west]
-  where 
-    north = addP (0,-1)
-    south = addP (0,1)
-    east  = addP (1,0)
-    west  = addP (-1,0)
-
-allDirectionVectors :: [Position -> Position]
-allDirectionVectors = [north,south,east,west,northeast,northwest,southeast,southwest]
+directionVectors = [north,south,east,west,northeast,northwest,southeast,southwest]
   where 
     north = addP (0,-1)
     south = addP (0,1)
@@ -184,7 +175,7 @@ allDirectionVectors = [north,south,east,west,northeast,northwest,southeast,south
 
 
 directionsAndDirectionVectors :: Position -> [(Direction, Position)]
-directionsAndDirectionVectors pos = zip [N,S,E,W,NE,NW,SE,SW] (allDirectionVectors <*> pure pos)
+directionsAndDirectionVectors pos = zip [N,S,E,W,NE,NW,SE,SW] (directionVectors <*> pure pos)
 
 directionToVector :: Direction -> Position -> Position
 directionToVector N = directionVectors !! 0
@@ -199,7 +190,7 @@ tunnelDirection pos = do
                 let thing = w ! directionToVector d pos
                 guard $ isNothing thing
                 return d
-    if length ds > 0 then do
+    if not (null ds) then do
         d <- randElem ds
         return (Just d)
     else
@@ -210,7 +201,7 @@ addToWorld [] = return ()
 addToWorld ((pos, thing):ts) = do
     w <- gets world
     when (pos `inWorld` w) $ do
-        case (w ! pos) of
+        case w ! pos of
             Nothing -> addThing (pos, thing) w
             Just Wall -> when (thing == Just Floor) $ do
                 removeWall pos
@@ -221,10 +212,10 @@ addToWorld ((pos, thing):ts) = do
     addThing (p,t) w = do
         if t == Just Wall then do
             walls <- gets walls
-            when (not $ p `elem` walls) $ modify (\s -> s { walls = p : walls })
+            unless (p `elem` walls) $ modify (\s -> s { walls = p : walls })
         else do
             floors <- gets floors
-            when (not $ p `elem` floors) $ modify (\s -> s { floors = p : floors })
+            unless (p `elem` floors) $ modify (\s -> s { floors = p : floors })
         modify (\s -> s { world = w // [(p,t)] })
     removeWall p = do
         walls <- gets walls
@@ -238,22 +229,16 @@ fitsInWorld thgs = do
         return False
     else do
         overlapAllowed <- asks roomOverlapAllowed
-        if overlapAllowed then
-            return True
-        else return $ all id $ do
+        return $ (||) overlapAllowed $ and $ do
             (p,nt) <- thgs
             let wt = w ! p
-            if isNothing wt then
-                return True
-            else if (nt == Just Wall) && (wt == Just Wall) then
-                return True
-            else
-                return False
+                b  = isNothing wt || (nt == Just Wall) && (wt == Just Wall)
+            return b
 
 createRoom :: Direction -> Position -> Rogue Bool
 createRoom dir pos@(px,py) = roomLoop 0 
   where 
-    roomLoop n = if (n >= 3) then return False else do
+    roomLoop n = if n >= 3 then return False else do
         min  <- asks minRoomSize
         max  <- asks maxRoomSize
         size@(rx,ry) <- randR (min, max)
@@ -273,13 +258,8 @@ createRoom dir pos@(px,py) = roomLoop 0
         if fits then do
             addToWorld r'
             return True
-        else do
+        else
             roomLoop (n+1)        
-
-adjacentFloor :: Position -> Rogue Bool
-adjacentFloor pos = do
-    w <- gets world
-    return $ any (== Just Floor) $ fmap (w !) (directionVectors <*> pure pos)
 
 tunnel :: Position -> Direction -> Rogue Bool
 tunnel pos dir = do
@@ -290,24 +270,24 @@ tunnel pos dir = do
         if ok then do
             addFloor 
             return True
-        else do
+        else
             endTunnel
-            return False
     else do
         let newPos = directionToVector dir pos
         ok <- inWorldR newPos
         if ok then do
             addFloor
             tunnel newPos dir
-        else do
+        else
             endTunnel
-            return False
   where 
     otherDirections = if dir `elem` [N,S] then [E,W] else [N,S]
     newDirection = randElem otherDirections
     sideWalls = [(directionToVector d pos, Just Wall) | d <- otherDirections]
     addFloor = addToWorld $ (pos, Just Floor) : sideWalls
-    endTunnel = addToWorld $ (pos, Just Wall) : sideWalls
+    endTunnel = do 
+        addToWorld $ (pos, Just Wall) : sideWalls 
+        return False
 
 makeInitialRoom :: Rogue ()
 makeInitialRoom = do
@@ -316,4 +296,32 @@ makeInitialRoom = do
     worldSize <- asks worldSize
     pos <- randR ((0,0), worldSize `subP` maxSize) 
     ok <- createRoom dir pos
-    when (not ok) makeInitialRoom
+    unless ok makeInitialRoom
+
+createWorld :: Rogue ()
+createWorld = do
+    clearWorld
+    makeInitialRoom
+    makeTunnels
+
+makeTunnels :: Rogue ()
+makeTunnels = do
+    max <- asks numTunnels
+    bar <- progressBar "generating map" max
+    forM_ [1..max] $ \n -> when (n < max) $ do
+        bar n
+        walls <- gets walls
+        wallsWithAdjacentFloors <- filterM adjacentFloor walls
+        theWall <- randElem wallsWithAdjacentFloors
+        dir <- tunnelDirection theWall
+        when (isJust dir) $ do
+            save <- get
+            okOnly <- asks onlyTerminalTunnels
+            ok <- tunnel theWall $ fromJust dir
+            when (okOnly && not ok) $ put save
+  where 
+    adjacentFloor pos = do
+        w <- gets world
+        let things = fmap (w !) (take 4 directionVectors <*> pure pos)
+        return $ Just Floor `elem` things
+

@@ -1,6 +1,7 @@
 module Rogue.Actions where
 
 import Rogue.Types
+import Rogue.Util
 import Rogue.World
 
 import Data.Array
