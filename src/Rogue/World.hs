@@ -32,81 +32,20 @@ showWorld = do
 getCharAtPos :: M.Map Position Actor -> World -> WorldGlyphMap -> Position -> Char
 getCharAtPos things w gm pos = 
     if pos `inWorld` w then 
-        maybe worldThing glyph $ M.lookup pos things 
+        -- if there is an actor at the position, get its glyph (contained in
+        -- the Actor datatype). Otherwise, get whatever is in the world here,
+        -- and show it. Otherwise just show a space.
+        maybe worldThing glyph $ M.lookup pos things
     else
         ' ' 
   where 
     worldThing = let t = w ! pos in 
-                 if t == Just Wall then 
-                    fancyGetWall pos w 
-                 else 
-                    toGlyph gm t
-
---- assuming there is a wall at pos, get the appropriate unicode char
-fancyGetWall :: Position -> World -> Char
-fancyGetWall pos w = case wallDirs of
-    [N] -> '╨' 
-    [S] -> '╥' 
-    [E] -> '╞'
-    [W] -> '╡'
-    [N,S] -> '║'
-    [N,E] -> '╚'
-    [N,W] -> '╝'
-    [S,E] -> '╔'
-    [S,W] -> '╗'
-    [E,W] -> '═'
-
-    [N,S,E] -> case fd of
-        [W] -> '║'
-        [W,NW] -> '║'
-        [W,SW] -> '║'
-        [W,NW,SW] -> '║'
-        [NE] -> '╚'
-        [SE] -> '╔'
-        _ -> '╠'
-
-    [N,S,W] -> case fd of
-        [E] -> '║'
-        [E,NE] -> '║'
-        [E,SE] -> '║'
-        [E,NE,SE] -> '║'
-        [NW] -> '╝'
-        [SW] -> '╗'
-        _ -> '╣'
-        
-    [N,E,W] -> case fd of
-        [S] -> '═'
-        [S,SE] -> '═'
-        [S,SW] -> '═'
-        [S,SE,SW] -> '═'
-        [NE] -> '╚'
-        [NW] -> '╝'
-        _ -> '╩'
-
-    [S,E,W] -> case fd of
-        [N] -> '═' 
-        [N,NE] -> '═' 
-        [N,NW] -> '═' 
-        [N,NE,NW] -> '═' 
-        [SE] -> '╔'
-        [SW] -> '╗'
-        _    -> '╦'
-
-    [N,S,E,W] -> case fd of
-        [NE] -> '╚'
-        [NW] -> '╝'
-        [SE] -> '╔'
-        [SW] -> '╗'
-        [NW,SW] -> '╣'
-        [NE,SE] -> '╠'
-        [NE,NW] -> '╩'
-        [SE,SW] -> '╦'
-        _    -> '╬'
-  where
-    checkDirs = directionsAndDirectionVectors pos
-    adjacentThings = map (second (w!)) checkDirs
-    wallDirs = map fst $ filter (\(d,t) -> d `elem` [N,S,E,W] && t == Just Wall) adjacentThings
-    fd = map fst $ filter (\(d,t) -> t == Just Floor) adjacentThings
+        case t of
+            Just something -> case M.lookup something gm of
+                Just (GlyphFunc f) -> f pos w
+                Just (Glyph g)     -> g
+                _ -> ' '
+            _ -> ' '
 
 screenDimensions :: Rogue (Position, Position)
 screenDimensions = do
@@ -115,10 +54,6 @@ screenDimensions = do
     let dPos = liftP (`div` 2) size
     return (p `subP` dPos, p `addP` dPos)
 
-
-toGlyph :: WorldGlyphMap -> Maybe Thing -> Char
-toGlyph gm (Just x) = fromMaybe ' ' $ M.lookup x gm
-toGlyph _ Nothing   = ' '
 
 inWorld :: Position -> Array Position a -> Bool
 inWorld (x,y) w = 

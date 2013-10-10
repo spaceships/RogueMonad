@@ -51,10 +51,12 @@ type Bindings      = [(Char, Rogue ())]
 type Position      = (Int, Int)
 type Size          = (Int, Int)
 type World         = Array Position (Maybe Thing)
-type WorldGlyphMap = M.Map Thing Char
+type WorldGlyphMap = M.Map Thing WorldGlyph
 
 data Thing = Floor | Wall
     deriving (Ord, Show, Eq)
+
+data WorldGlyph = Glyph Char | GlyphFunc (Position -> World -> Char)
 
 data Direction = N | NE | E | SE | S | SW | W | NW
     deriving (Ord, Eq, Show, Enum)
