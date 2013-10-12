@@ -40,12 +40,10 @@ getCharAtPos things w gm pos =
         ' ' 
   where 
     worldThing = let t = w ! pos in 
-        case t of
-            Just something -> case M.lookup something gm of
+            case M.lookup t gm of
                 Just (GlyphFunc f) -> f pos w
                 Just (Glyph g)     -> g
                 _ -> ' '
-            _ -> ' '
 
 screenDimensions :: Rogue (Position, Position)
 screenDimensions = do
@@ -80,12 +78,12 @@ positionPlayer = do
                         }) 
 
 
-room :: Size -> [(Position, Maybe Thing)]
+room :: Size -> [(Position, Thing)]
 room s@(maxX, maxY) = 
     [ ((x,y), thing (x,y)) | x <- [0..maxX], y <- [0..maxY] ]
   where
-    thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Just Wall
-                | otherwise = Just Floor
+    thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Wall
+                | otherwise = Floor
 
 clearWorld :: Rogue ()
 clearWorld = do
@@ -93,7 +91,7 @@ clearWorld = do
     let w = array ((0,0), size) $ do
             x <- [0..maxX] 
             y <- [0..maxY]
-            return ((x,y),Nothing)
+            return ((x,y),Empty)
     modify (\s -> s { world = w })
 
 directionVectors :: [Position -> Position]
@@ -123,7 +121,7 @@ tunnelDirection pos = do
     w <- gets world 
     let ds = do d <- [N,S,E,W] 
                 let thing = w ! directionToVector d pos
-                guard $ isNothing thing
+                guard $ thing == Empty
                 return d
     if not (null ds) then do
         d <- randElem ds
@@ -131,21 +129,21 @@ tunnelDirection pos = do
     else
         return Nothing
 
-addToWorld :: [(Position, Maybe Thing)] -> Rogue ()
+addToWorld :: [(Position, Thing)] -> Rogue ()
 addToWorld [] = return ()
 addToWorld ((pos, thing):ts) = do
     w <- gets world
     when (pos `inWorld` w) $ do
         case w ! pos of
-            Nothing -> addThing (pos, thing) w
-            Just Wall -> when (thing == Just Floor) $ do
+            Empty -> addThing (pos, thing) w
+            Wall -> when (thing == Floor) $ do
                 removeWall pos
                 addThing (pos,thing) w
             _ -> return ()
         addToWorld ts
   where
     addThing (p,t) w = do
-        if t == Just Wall then do
+        if t == Wall then do
             walls <- gets walls
             unless (p `elem` walls) $ modify (\s -> s { walls = p : walls })
         else do
@@ -157,7 +155,7 @@ addToWorld ((pos, thing):ts) = do
         modify (\s -> s { walls = delete p walls })
         
 
-fitsInWorld :: [(Position, Maybe Thing)] -> Rogue Bool
+fitsInWorld :: [(Position, Thing)] -> Rogue Bool
 fitsInWorld thgs = do
     w <- gets world
     if not $ all (`inWorld` w) (fst <$> thgs) then
@@ -167,7 +165,7 @@ fitsInWorld thgs = do
         return $ (||) overlapAllowed $ and $ do
             (p,nt) <- thgs
             let wt = w ! p
-                b  = isNothing wt || (nt == Just Wall) && (wt == Just Wall)
+                b  = wt == Empty || (nt == Wall) && (wt == Wall)
             return b
 
 createRoom :: Direction -> Position -> Rogue Bool
@@ -218,10 +216,10 @@ tunnel pos dir = do
   where 
     otherDirections = if dir `elem` [N,S] then [E,W] else [N,S]
     newDirection = randElem otherDirections
-    sideWalls = [(directionToVector d pos, Just Wall) | d <- otherDirections]
-    addFloor = addToWorld $ (pos, Just Floor) : sideWalls
+    sideWalls = [(directionToVector d pos, Wall) | d <- otherDirections]
+    addFloor = addToWorld $ (pos, Floor) : sideWalls
     endTunnel = do 
-        addToWorld $ (pos, Just Wall) : sideWalls 
+        addToWorld $ (pos, Wall) : sideWalls 
         return False
 
 makeInitialRoom :: Rogue ()
@@ -258,5 +256,5 @@ makeTunnels = do
     adjacentFloor pos = do
         w <- gets world
         let things = fmap (w !) (take 4 directionVectors <*> pure pos)
-        return $ Just Floor `elem` things
+        return $ Floor `elem` things
 

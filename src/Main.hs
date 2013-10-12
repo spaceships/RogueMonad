@@ -32,7 +32,7 @@ demoConf = RConfig {
 
 demoState :: RState
 demoState = RState { 
-      world = array ((0,0), demoWorldSize) [((x,y), Nothing) | x <- [0..10], y <- [0..10]]
+      world = array ((0,0), demoWorldSize) [((x,y), Empty) | x <- [0..10], y <- [0..10]]
     , enemies = M.empty
     , player = demoChar
     , done = False
@@ -136,6 +136,6 @@ fancyGetWall pos w = case wallDirs of
   where
     checkDirs = directionsAndDirectionVectors pos
     adjacentThings = map (second (w!)) checkDirs
-    wallDirs = map fst $ filter (\(d,t) -> d `elem` [N,S,E,W] && t == Just Wall) adjacentThings
-    fd = map fst $ filter (\(d,t) -> t == Just Floor) adjacentThings
+    wallDirs = map fst $ filter (\(d,t) -> d `elem` [N,S,E,W] && t == Wall) adjacentThings
+    fd = map fst $ filter (\(d,t) -> t == Floor) adjacentThings
 

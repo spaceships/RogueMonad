@@ -26,7 +26,7 @@ isFloor = isThing Floor
 
 isThing :: Thing -> Position -> World -> Bool
 isThing t p w 
-    | p `inWorld` w = maybe False (== t) (w ! p)
+    | p `inWorld` w = w ! p == t
     | otherwise     = False          
 
 dirToPos :: Direction -> Position

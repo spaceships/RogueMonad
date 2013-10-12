@@ -50,10 +50,10 @@ data Actor = Actor
 type Bindings      = [(Char, Rogue ())]
 type Position      = (Int, Int)
 type Size          = (Int, Int)
-type World         = Array Position (Maybe Thing)
+type World         = Array Position Thing
 type WorldGlyphMap = M.Map Thing WorldGlyph
 
-data Thing = Floor | Wall
+data Thing = Floor | Wall | Empty
     deriving (Ord, Show, Eq)
 
 data WorldGlyph = Glyph Char | GlyphFunc (Position -> World -> Char)
