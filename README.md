@@ -6,9 +6,11 @@ A simple roguelike.
 Running
 -------
 
->   cabal run
-
-Installation
-------------
+Install the dependencies:
 
 >   cabal install
+
+Play!
+
+>   cabal run
+
