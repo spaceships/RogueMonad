@@ -1,16 +1,20 @@
-module Rogue.Interface where
+module Rogue.Interface 
+    (
+      rogue
+    ) where
 
 import Rogue.Types
-import Rogue.Util
-import Rogue.World
-import Rogue.Actions
+import Rogue.Util (center)
+import Rogue.World (createWorld, positionPlayer, showWorld)
 
-import Control.Monad.State
-import Control.Monad.Reader
-import Text.Printf
-import System.Console.ANSI
-import System.IO
-import Data.Maybe
+import Control.Monad.State (get, gets)
+import Control.Monad.Reader (asks)
+import Control.Monad.Trans (liftIO)
+import Control.Monad (unless)
+import Text.Printf (printf)
+import System.Console.ANSI (hideCursor, clearScreen, showCursor, setCursorPosition)
+import System.IO (hSetBuffering, stdin, BufferMode(NoBuffering), hSetEcho)
+import Data.Maybe (fromMaybe)
 
 rogue :: Rogue ()
 rogue = do

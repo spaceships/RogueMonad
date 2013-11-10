@@ -2,10 +2,11 @@ module Rogue.Util where
 
 import Rogue.Types
 
-import System.Random
-import System.Console.ANSI
-import Control.Monad.State
-import Control.Monad.Reader
+import System.Random (Random, random, randomR)
+import System.Console.ANSI (clearScreen, setCursorPosition)
+import Control.Monad.State (gets, modify)
+import Control.Monad.Reader (asks)
+import Control.Monad.Trans (liftIO)
 
 liftP :: (a -> b) -> (a, a) -> (b, b)
 liftP f (a, b) = (f a, f b)

@@ -1,9 +1,9 @@
 module Rogue.Types where
 
-import Data.Array
-import System.Random
-import Control.Monad.State
-import Control.Monad.Reader
+import Data.Array (Array)
+import System.Random (Random, StdGen, Random, random, randomR)
+import Control.Monad.State (StateT, evalStateT)
+import Control.Monad.Reader (ReaderT, runReaderT)
 
 import qualified Data.Map as M
 
@@ -53,10 +53,13 @@ type Size          = (Int, Int)
 type World         = Array Position Thing
 type WorldGlyphMap = M.Map Thing WorldGlyph
 
-data Thing = Floor | Wall | Empty
+data Thing = Floor 
+           | Wall 
+           | Empty
     deriving (Ord, Show, Eq)
 
-data WorldGlyph = Glyph Char | GlyphFunc (Position -> World -> Char)
+data WorldGlyph = Glyph Char                            -- Static character
+                | GlyphFunc (Position -> World -> Char) -- Dynamic character
 
 data Direction = N | NE | E | SE | S | SW | W | NW
     deriving (Ord, Eq, Show, Enum)

@@ -1,12 +1,16 @@
-module Rogue.Actions where
+module Rogue.Actions
+    (
+      move
+    , quit
+    ) where
 
 import Rogue.Types
-import Rogue.Util
-import Rogue.World
+import Rogue.Util (addP)
+import Rogue.World (inWorld)
 
-import Data.Array
-import Control.Monad.State
-import Control.Monad.Error
+import Data.Array ((!))
+import Control.Monad.State (get, put, modify)
+import Control.Monad (when)
 import qualified Data.Map as M
 
 move :: Direction -> Rogue ()

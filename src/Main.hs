@@ -1,16 +1,12 @@
 module Main where
 
 import Rogue.Types
-import Rogue.Util
-import Rogue.World
-import Rogue.Actions
-import Rogue.Interface
+import Rogue.Actions (move, quit)
+import Rogue.Interface (rogue)
 
-import Data.Array
-import System.Random
-import Control.Arrow
-import Control.Monad.State
-import Control.Monad.Error
+import Data.Array (array, (!))
+import System.Random (newStdGen, mkStdGen)
+import Control.Arrow (second)
 import qualified Data.Map as M
 
 main :: IO ()
@@ -70,72 +66,5 @@ demoChar = Actor {
 demoGlyphs :: WorldGlyphMap
 demoGlyphs = M.fromList [
       (Floor, Glyph '.')
-    , (Wall, GlyphFunc fancyGetWall)
+    , (Wall, Glyph '#')
     ]
-
---- assuming there is a wall at pos, get the appropriate unicode char
-fancyGetWall :: Position -> World -> Char
-fancyGetWall pos w = case wallDirs of
-    [N] -> '╨' 
-    [S] -> '╥' 
-    [E] -> '╞'
-    [W] -> '╡'
-    [N,S] -> '║'
-    [N,E] -> '╚'
-    [N,W] -> '╝'
-    [S,E] -> '╔'
-    [S,W] -> '╗'
-    [E,W] -> '═'
-
-    [N,S,E] -> case fd of
-        [W] -> '║'
-        [W,NW] -> '║'
-        [W,SW] -> '║'
-        [W,NW,SW] -> '║'
-        [NE] -> '╚'
-        [SE] -> '╔'
-        _ -> '╠'
-
-    [N,S,W] -> case fd of
-        [E] -> '║'
-        [E,NE] -> '║'
-        [E,SE] -> '║'
-        [E,NE,SE] -> '║'
-        [NW] -> '╝'
-        [SW] -> '╗'
-        _ -> '╣'
-        
-    [N,E,W] -> case fd of
-        [S] -> '═'
-        [S,SE] -> '═'
-        [S,SW] -> '═'
-        [S,SE,SW] -> '═'
-        [NE] -> '╚'
-        [NW] -> '╝'
-        _ -> '╩'
-
-    [S,E,W] -> case fd of
-        [N] -> '═' 
-        [N,NE] -> '═' 
-        [N,NW] -> '═' 
-        [N,NE,NW] -> '═' 
-        [SE] -> '╔'
-        [SW] -> '╗'
-        _    -> '╦'
-
-    [N,S,E,W] -> case fd of
-        [NE] -> '╚'
-        [NW] -> '╝'
-        [SE] -> '╔'
-        [SW] -> '╗'
-        [NW,SW] -> '╣'
-        [NE,SE] -> '╠'
-        [NE,NW] -> '╩'
-        [SE,SW] -> '╦'
-        _    -> '╬'
-  where
-    checkDirs = directionsAndDirectionVectors pos
-    adjacentThings = map (second (w!)) checkDirs
-    wallDirs = map fst $ filter (\(d,t) -> d `elem` [N,S,E,W] && t == Wall) adjacentThings
-    fd = map fst $ filter (\(d,t) -> t == Floor) adjacentThings
-

@@ -1,15 +1,22 @@
-module Rogue.World where
+module Rogue.World 
+    (
+      createWorld
+    , positionPlayer
+    , showWorld
+    , inWorld
+    ) where
 
 import Rogue.Types
-import Rogue.Util
+import Rogue.Util (liftP, subP, addP, randElem, randR, progressBar)
 
-import Control.Monad.State
-import Control.Monad.Reader
-import Control.Arrow
-import Control.Applicative
-import Data.Array
-import Data.List
-import Data.Maybe
+import Control.Monad.State (get, gets, modify, put)
+import Control.Monad.Reader (ask, asks)
+import Control.Monad (unless, guard, when, forM_, filterM)
+import Control.Arrow (first)
+import Control.Applicative ((<*>), (<*>), (<$>), pure)
+import Data.Array ((!), bounds, array, (//), Array)
+import Data.List (delete)
+import Data.Maybe (fromJust, isJust)
 import qualified Data.Map as M
 
 showWorld :: Rogue String
