@@ -11,6 +11,7 @@ import Control.Monad.State (get, gets)
 import Control.Monad.Reader (asks)
 import Control.Monad.Trans (liftIO)
 import Control.Monad (unless)
+import Control.Lens
 import Text.Printf (printf)
 import System.Console.ANSI (hideCursor, clearScreen, showCursor, setCursorPosition)
 import System.IO (hSetBuffering, stdin, BufferMode(NoBuffering), hSetEcho)
@@ -38,14 +39,14 @@ unsetTermOpts = do
 
 play :: Rogue ()
 play = untilQuit $ do
-    keys <- asks bindings
+    keys <- view bindings
     update
     k <- liftIO getChar
     fromMaybe (return ()) (lookup k keys)
     play
 
 untilQuit :: Rogue () -> Rogue ()
-untilQuit m = gets done >>= \d -> unless d m
+untilQuit m = use done >>= \d -> unless d m
 
 update :: Rogue ()
 update = do
@@ -56,8 +57,8 @@ update = do
 
 getStatusBar :: Rogue String
 getStatusBar = do
-    Actor hp maxHp acc def position@(x,y) _ g <- gets player
-    (width, _) <- asks screenSize
+    Actor hp maxHp acc def position@(x,y) _ g <- use player
+    (width, _) <- view screenSize
     let info = printf "| %c | acc:%d | def: %d | hp: %d/%d | (%d,%d) |" g acc def hp maxHp x y
     return $ center info width ++ "\n"
 

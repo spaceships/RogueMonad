@@ -11,20 +11,22 @@ import Rogue.World (inWorld)
 import Data.Array ((!))
 import Control.Monad.State (get, put, modify)
 import Control.Monad (when)
+import Control.Lens
 import qualified Data.Map as M
 
 move :: Direction -> Rogue ()
 move d = do
     st <- get
 
-    let w      = world st
-        es     = enemies st
-        p      = player st
-        newPos = position p `addP` dirToPos d
+    let w      = st^.world
+        es     = st^.enemies
+        p      = st^.player
+        fs     = st^.floors
+        newPos = (p^.position) `addP` dirToPos d
 
-    when (newPos `isFloor` w && newPos `M.notMember` es)
-        (put st{ player = p{ position = newPos }})
-
+    when (newPos `elem` fs && newPos `M.notMember` es) $ do
+        player.position .= newPos
+        
 isFloor :: Position -> World -> Bool
 isFloor = isThing Floor
 
@@ -45,4 +47,4 @@ dirToPos d = case d of
     NW -> (-1,-1)
 
 quit :: Rogue ()
-quit = modify (\s -> s { done = True } )
+quit = done .= True

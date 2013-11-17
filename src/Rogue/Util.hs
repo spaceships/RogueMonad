@@ -4,9 +4,9 @@ import Rogue.Types
 
 import System.Random (Random, random, randomR)
 import System.Console.ANSI (clearScreen, setCursorPosition)
-import Control.Monad.State (gets, modify)
-import Control.Monad.Reader (asks)
 import Control.Monad.Trans (liftIO)
+import qualified Control.Lens as L
+import Control.Lens.Operators
 
 liftP :: (a -> b) -> (a, a) -> (b, b)
 liftP f (a, b) = (f a, f b)
@@ -22,16 +22,16 @@ subP = liftP2 (-)
 
 rand :: Random a => Rogue a
 rand = do
-    g <- gets stdGen 
+    g <- L.use stdGen
     let (a, g') = random g
-    modify $ \s -> s { stdGen = g' }
+    stdGen .= g'
     return a
 
 randR :: Random a => (a,a) -> Rogue a
 randR range = do
-    g <- gets stdGen 
+    g <- L.use stdGen 
     let (a, g') = randomR range g
-    modify $ \s -> s { stdGen = g' }
+    stdGen .= g'
     return a
 
 randElem :: [a] -> Rogue a
@@ -53,7 +53,7 @@ center s w = replicate left ' ' ++ s ++ replicate right ' '
 progressBar :: String -> Int -> Rogue (Int -> Rogue ())
 progressBar label total = do
     liftIO clearScreen
-    (maxX,maxY) <- asks screenSize
+    (maxX,maxY) <- L.view screenSize
     let length = 20
         y = maxY `div` 2
     liftIO $ setCursorPosition (y-1) 0

@@ -19,21 +19,22 @@ import Data.List (delete)
 import Data.Maybe (fromJust, isJust)
 import qualified Data.Map as M
 
+import Control.Lens
+
 showWorld :: Rogue String
 showWorld = do
-    st  <- get
+    s   <- get
     cfg <- ask
     
     ((xmin,ymin), (xmax, ymax)) <- screenDimensions
 
     let
-        p                = player st
-        actors           = M.insert (position p) p (enemies st)
-        getChar          = getCharAtPos actors (world st) (worldGlyphs cfg)
-        makeLine y       = [ getChar (x,y) | x <- [xmin..xmax] ]
-        textWorld cfg st = unlines [ makeLine y | y <- [ymin..ymax] ]
+        actors     = M.insert (s^.player.position) (s^.player) (s^.enemies)
+        getChar    = getCharAtPos actors (s^.world) (cfg^.worldGlyphs)
+        makeLine y = [ getChar (x,y) | x <- [xmin..xmax] ]
+        textWorld  = unlines [ makeLine y | y <- [ymin..ymax] ]
 
-    return $ textWorld cfg st
+    return $ textWorld
 
         
 getCharAtPos :: M.Map Position Actor -> World -> WorldGlyphMap -> Position -> Char
@@ -42,7 +43,7 @@ getCharAtPos things w gm pos =
         -- if there is an actor at the position, get its glyph (contained in
         -- the Actor datatype). Otherwise, get whatever is in the world here,
         -- and show it. Otherwise just show a space.
-        maybe worldThing glyph $ M.lookup pos things
+        maybe worldThing (^. glyph) $ M.lookup pos things
     else
         ' ' 
   where 
@@ -54,8 +55,8 @@ getCharAtPos things w gm pos =
 
 screenDimensions :: Rogue (Position, Position)
 screenDimensions = do
-    p <- gets (position . player)
-    size <- asks screenSize
+    p <- use (player.position)
+    size <- view screenSize
     let dPos = liftP (`div` 2) size
     return (p `subP` dPos, p `addP` dPos)
 
@@ -71,18 +72,16 @@ inWorld (x,y) w =
 
 inWorldR :: Position -> Rogue Bool
 inWorldR p = do
-    w <- gets world
+    w <- use world
     return $ p `inWorld` w
     
 positionPlayer :: Rogue ()
 positionPlayer = do
-    p <- gets player 
-    possiblePositions <- gets floors
+    possiblePositions <- use floors
     unless (null possiblePositions) $ do
         newPos <- randElem possiblePositions
-        modify (\s -> s { player = p { position = newPos } 
-                        , floors = delete newPos possiblePositions
-                        }) 
+        player.position .= newPos
+        floors %= delete newPos
 
 
 room :: Size -> [(Position, Thing)]
@@ -90,16 +89,16 @@ room s@(maxX, maxY) =
     [ ((x,y), thing (x,y)) | x <- [0..maxX], y <- [0..maxY] ]
   where
     thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Wall
-                | otherwise = Floor
+                 | otherwise = Floor
 
 clearWorld :: Rogue ()
 clearWorld = do
-    size@(maxX, maxY) <- asks worldSize
+    size@(maxX, maxY) <- view worldSize
     let w = array ((0,0), size) $ do
             x <- [0..maxX] 
             y <- [0..maxY]
             return ((x,y),Empty)
-    modify (\s -> s { world = w })
+    world .= w
 
 directionVectors :: [Position -> Position]
 directionVectors = [north,south,east,west,northeast,northwest,southeast,southwest]
@@ -114,8 +113,8 @@ directionVectors = [north,south,east,west,northeast,northwest,southeast,southwes
     southwest = addP (-1,1)
 
 
-directionsAndDirectionVectors :: Position -> [(Direction, Position)]
-directionsAndDirectionVectors pos = zip [N,S,E,W,NE,NW,SE,SW] (directionVectors <*> pure pos)
+--directionsAndDirectionVectors :: Position -> [(Direction, Position)]
+--directionsAndDirectionVectors pos = zip [N,S,E,W,NE,NW,SE,SW] (directionVectors <*> pure pos)
 
 directionToVector :: Direction -> Position -> Position
 directionToVector N = directionVectors !! 0
@@ -125,10 +124,10 @@ directionToVector W = directionVectors !! 3
 
 tunnelDirection :: Position -> Rogue (Maybe Direction)
 tunnelDirection pos = do
-    w <- gets world 
+    w <- use world 
     let ds = do d <- [N,S,E,W] 
                 let thing = w ! directionToVector d pos
-                guard $ thing == Empty
+                guard (thing == Empty) 
                 return d
     if not (null ds) then do
         d <- randElem ds
@@ -139,36 +138,34 @@ tunnelDirection pos = do
 addToWorld :: [(Position, Thing)] -> Rogue ()
 addToWorld [] = return ()
 addToWorld ((pos, thing):ts) = do
-    w <- gets world
+    w <- use world
     when (pos `inWorld` w) $ do
         case w ! pos of
-            Empty -> addThing (pos, thing) w
+            Empty -> addThing (pos, thing)
             Wall -> when (thing == Floor) $ do
                 removeWall pos
-                addThing (pos,thing) w
+                addThing (pos,thing)
             _ -> return ()
         addToWorld ts
   where
-    addThing (p,t) w = do
+    addThing (p,t) = do
         if t == Wall then do
-            walls <- gets walls
-            unless (p `elem` walls) $ modify (\s -> s { walls = p : walls })
+            ws <- use walls
+            unless (p `elem` ws) $ walls %= (p:)
         else do
-            floors <- gets floors
-            unless (p `elem` floors) $ modify (\s -> s { floors = p : floors })
-        modify (\s -> s { world = w // [(p,t)] })
+            fs <- use floors
+            unless (p `elem` fs) $ floors %= (p:)
+        world %= (// [(p,t)])
     removeWall p = do
-        walls <- gets walls
-        modify (\s -> s { walls = delete p walls })
-        
+        walls %= delete p
 
 fitsInWorld :: [(Position, Thing)] -> Rogue Bool
 fitsInWorld thgs = do
-    w <- gets world
+    w <- use world
     if not $ all (`inWorld` w) (fst <$> thgs) then
         return False
     else do
-        overlapAllowed <- asks roomOverlapAllowed
+        overlapAllowed <- view roomOverlapAllowed
         return $ (||) overlapAllowed $ and $ do
             (p,nt) <- thgs
             let wt = w ! p
@@ -179,8 +176,8 @@ createRoom :: Direction -> Position -> Rogue Bool
 createRoom dir pos@(px,py) = roomLoop 0 
   where 
     roomLoop n = if n >= 3 then return False else do
-        min  <- asks minRoomSize
-        max  <- asks maxRoomSize
+        min  <- view minRoomSize
+        max  <- view maxRoomSize
         size@(rx,ry) <- randR (min, max)
         let r = room size
             
@@ -203,7 +200,7 @@ createRoom dir pos@(px,py) = roomLoop 0
 
 tunnel :: Position -> Direction -> Rogue Bool
 tunnel pos dir = do
-    k <- asks tunnelThreshold
+    k <- view tunnelThreshold
     n <- randR (0,10)
     if n > k * 10 then do
         ok <- createRoom dir pos
@@ -232,9 +229,9 @@ tunnel pos dir = do
 makeInitialRoom :: Rogue ()
 makeInitialRoom = do
     dir <- randElem [N,S,E,W]
-    maxSize <- asks maxRoomSize
-    worldSize <- asks worldSize
-    pos <- randR ((0,0), worldSize `subP` maxSize) 
+    maxSize <- view maxRoomSize
+    ws <- view worldSize
+    pos <- randR ((0,0), ws `subP` maxSize) 
     ok <- createRoom dir pos
     unless ok makeInitialRoom
 
@@ -246,22 +243,22 @@ createWorld = do
 
 makeTunnels :: Rogue ()
 makeTunnels = do
-    max <- asks numTunnels
+    max <- view numTunnels
     bar <- progressBar "generating map" max
     forM_ [1..max] $ \n -> when (n < max) $ do
         bar n
-        walls <- gets walls
-        wallsWithAdjacentFloors <- filterM adjacentFloor walls
+        ws <- use walls
+        wallsWithAdjacentFloors <- filterM adjacentFloor ws
         theWall <- randElem wallsWithAdjacentFloors
         dir <- tunnelDirection theWall
         when (isJust dir) $ do
             save <- get
-            okOnly <- asks onlyTerminalTunnels
+            okOnly <- view onlyTerminalTunnels
             ok <- tunnel theWall $ fromJust dir
             when (okOnly && not ok) $ put save
   where 
     adjacentFloor pos = do
-        w <- gets world
+        w <- use world
         let things = fmap (w !) (take 4 directionVectors <*> pure pos)
         return $ Floor `elem` things
 
