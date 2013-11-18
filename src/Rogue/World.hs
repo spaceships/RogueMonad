@@ -9,10 +9,9 @@ module Rogue.World
 import Rogue.Types
 import Rogue.Util (liftP, subP, addP, randElem, randR, progressBar)
 
-import Control.Monad.State (get, gets, modify, put)
-import Control.Monad.Reader (ask, asks)
+import Control.Monad.State (get, put)
+import Control.Monad.Reader (ask)
 import Control.Monad (unless, guard, when, forM_, filterM)
-import Control.Arrow (first)
 import Control.Applicative ((<*>), (<*>), (<$>), pure)
 import Data.Array ((!), bounds, array, (//), Array)
 import Data.List (delete)
@@ -29,7 +28,7 @@ showWorld = do
     ((xmin,ymin), (xmax, ymax)) <- screenDimensions
 
     let
-        actors     = M.insert (s^.player.position) (s^.player) (s^.enemies)
+        actors     = (s^.player) : (s^.enemies)
         getChar    = getCharAtPos actors (s^.world) (cfg^.worldGlyphs)
         makeLine y = [ getChar (x,y) | x <- [xmin..xmax] ]
         textWorld  = unlines [ makeLine y | y <- [ymin..ymax] ]
@@ -37,13 +36,13 @@ showWorld = do
     return $ textWorld
 
         
-getCharAtPos :: M.Map Position Actor -> World -> WorldGlyphMap -> Position -> Char
-getCharAtPos things w gm pos = 
+getCharAtPos :: [Actor] -> World -> WorldGlyphMap -> Position -> Char
+getCharAtPos actors w gm pos = 
     if pos `inWorld` w then 
         -- if there is an actor at the position, get its glyph (contained in
         -- the Actor datatype). Otherwise, get whatever is in the world here,
         -- and show it. Otherwise just show a space.
-        maybe worldThing (^. glyph) $ M.lookup pos things
+        maybe worldThing (^. glyph) $ actors ^? traversed.filtered (\x-> x^.position == pos)
     else
         ' ' 
   where 
@@ -183,13 +182,13 @@ createRoom dir pos@(px,py) = roomLoop 0
             
         r' <- case dir of
             N -> do n <- randR (1,rx-1)
-                    return $ fmap (first (addP (px - n, py - ry))) r
+                    return $ r & mapped._1 %~ addP (px - n, py - ry)
             S -> do n <- randR (1,rx-1)
-                    return $ fmap (first (addP (px - n, py))) r
+                    return $ r & mapped._1 %~ addP (px - n, py)
             E -> do n <- randR (1,ry-1)
-                    return $ fmap (first (addP (px, py - n))) r
+                    return $ r & mapped._1 %~ addP (px, py - n)
             W -> do n <- randR (1,ry-1)
-                    return $ fmap (first (addP (px - rx, py - n))) r
+                    return $ r & mapped._1 %~ addP (px - rx, py - n)
 
         fits <- fitsInWorld r'
         if fits then do

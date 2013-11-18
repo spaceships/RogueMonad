@@ -16,15 +16,13 @@ import qualified Data.Map as M
 
 move :: Direction -> Rogue ()
 move d = do
-    st <- get
+    s <- get
 
-    let w      = st^.world
-        es     = st^.enemies
-        p      = st^.player
-        fs     = st^.floors
-        newPos = (p^.position) `addP` dirToPos d
+    let es     = s^.enemies
+        fs     = s^.floors
+        newPos = (s^.player.position) `addP` dirToPos d
 
-    when (newPos `elem` fs && newPos `M.notMember` es) $ do
+    when ((not $ anyOf (enemies.traverse.position) (== newPos) s) && newPos `elem` fs) $ do
         player.position .= newPos
         
 isFloor :: Position -> World -> Bool

@@ -7,8 +7,6 @@ import Rogue.Types
 import Rogue.Util (center)
 import Rogue.World (createWorld, positionPlayer, showWorld)
 
-import Control.Monad.State (get, gets)
-import Control.Monad.Reader (asks)
 import Control.Monad.Trans (liftIO)
 import Control.Monad (unless)
 import Control.Lens
@@ -57,8 +55,8 @@ update = do
 
 getStatusBar :: Rogue String
 getStatusBar = do
-    Actor hp maxHp acc def position@(x,y) _ g <- use player
-    (width, _) <- view screenSize
-    let info = printf "| %c | acc:%d | def: %d | hp: %d/%d | (%d,%d) |" g acc def hp maxHp x y
+    p <- use player
+    width <- view (screenSize._1)
+    let info = printf "| %c | acc:%d | def: %d | hp: %d/%d | (%d,%d) |" (p^.glyph) (p^.acc) (p^.def) (p^.hp) (p^.maxHp) (p^.position._1) (p^.position._2)
     return $ center info width ++ "\n"
 

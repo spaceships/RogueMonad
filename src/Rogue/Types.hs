@@ -16,7 +16,7 @@ runRogue m c s = runReaderT (evalStateT m s) c
 
 data RState = RState 
     { _world   :: World
-    , _enemies :: M.Map Position Actor
+    , _enemies :: [Actor]
     , _player  :: Actor
     , _done    :: Bool
     , _stdGen  :: StdGen
@@ -76,4 +76,3 @@ instance (Random x, Random y) => Random (x, y) where
 makeLenses ''RState
 makeLenses ''RConfig
 makeLenses ''Actor
-

@@ -6,7 +6,6 @@ import Rogue.Interface (rogue)
 
 import Data.Array (array, (!))
 import System.Random (newStdGen, mkStdGen)
-import Control.Arrow (second)
 import Control.Lens
 import qualified Data.Map as M
 
@@ -30,7 +29,7 @@ demoConf = RConfig
 demoState :: RState
 demoState = RState 
     { _world = array ((0,0), demoWorldSize) [((x,y), Empty) | x <- [0..10], y <- [0..10]]
-    , _enemies = M.empty
+    , _enemies = []
     , _player = demoChar
     , _done = False
     , _stdGen = mkStdGen 0
