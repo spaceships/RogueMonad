@@ -1,8 +1,8 @@
 module Main where
 
 import Rogue.Types
-import Rogue.Actions (move, quit)
-import Rogue.Interface (rogue)
+import Rogue.Actions
+import Rogue.Interface
 
 import Data.Array (array, (!))
 import System.Random (newStdGen, mkStdGen)
@@ -10,31 +10,22 @@ import Control.Lens
 import qualified Data.Map as M
 
 main :: IO ()
-main = newStdGen >>= \g -> runRogue rogue demoConf demoState { _stdGen = g }
+main = newStdGen >>= \g -> runRogue rogue demoConf demoState { _stdGenR = g }
 
 demoConf :: RConfig
 demoConf = RConfig 
-    { _worldSize = demoWorldSize
-    , _screenSize = (80, 22)
-    , _minRoomSize = (5,3)
-    , _maxRoomSize = (19,9)
-    , _worldGlyphs = demoGlyphs
+    { _screenSize = (80, 22)
+    , _glyphs = demoGlyphs
     , _bindings = demoBindings
-    , _tunnelThreshold = 0.75
-    , _roomOverlapAllowed = False
-    , _numTunnels = 100
-    , _onlyTerminalTunnels = True
     }
 
 demoState :: RState
 demoState = RState 
-    { _world = array ((0,0), demoWorldSize) [((x,y), Empty) | x <- [0..10], y <- [0..10]]
+    { _world = array ((0,0), demoWorldSize) [((x,y), EmptySpace) | x <- [0..10], y <- [0..10]]
     , _enemies = []
     , _player = demoChar
-    , _done = False
-    , _stdGen = mkStdGen 0
-    , _floors = []
-    , _walls = []
+    , _exitGame = False
+    , _stdGenR = mkStdGen 0
     }
 
 demoWorldSize = (200, 90)
@@ -50,6 +41,7 @@ demoBindings =
     , ('y', move NW)
     , ('u', move NE)
     , ('\ESC', quit)
+    , ('r', genWorld)
     ]
 
 demoChar :: Actor
@@ -59,12 +51,12 @@ demoChar = Actor
     , _acc = 10
     , _def = 10 
     , _position = (1,1)
-    , _name = "player"
-    , _glyph = '@'
+    , _name = "Player"
     }
 
-demoGlyphs :: WorldGlyphMap
+demoGlyphs :: GlyphMap
 demoGlyphs = M.fromList 
-    [ (Floor, Glyph '.')
-    , (Wall, Glyph '#')
+    [ ("Floor", '.')
+    , ("Wall", '#')
+    , ("Player", '@')
     ]

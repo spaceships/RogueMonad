@@ -4,8 +4,12 @@ import Rogue.Types
 
 import System.Random (Random, random, randomR)
 import System.Console.ANSI (clearScreen, setCursorPosition)
-import Control.Monad.Trans (liftIO)
+import Control.Monad.IO.Class (liftIO)
 import Control.Lens
+
+isFloor :: Thing -> Bool
+isFloor (Floor _ _) = True
+isFloor _ = False
 
 liftP :: (a -> b) -> (a, a) -> (b, b)
 liftP f (a, b) = (f a, f b)
@@ -21,21 +25,33 @@ subP = liftP2 (-)
 
 rand :: Random a => Rogue a
 rand = do
-    g <- use stdGen
+    g <- use stdGenR
     let (a, g') = random g
-    stdGen .= g'
+    stdGenR .= g'
     return a
 
 randR :: Random a => (a,a) -> Rogue a
 randR range = do
-    g <- use stdGen 
+    g <- use stdGenR
     let (a, g') = randomR range g
-    stdGen .= g'
+    stdGenR .= g'
     return a
 
-randElem :: [a] -> Rogue a
-randElem xs = do
+randW :: Random a => (a,a) -> WorldGen a
+randW range = do
+    g <- use stdGenW
+    let (a, g') = randomR range g
+    stdGenW .= g'
+    return a
+
+randElemR :: [a] -> Rogue a
+randElemR xs = do
     n <- randR (0, length xs - 1)
+    return (xs !! n)
+
+randElemW :: [a] -> WorldGen a
+randElemW xs = do
+    n <- randW (0, length xs - 1)
     return (xs !! n)
 
 printR :: Show a => a -> Rogue ()

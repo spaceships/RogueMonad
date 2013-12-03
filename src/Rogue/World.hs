@@ -1,66 +1,74 @@
 module Rogue.World 
     (
-      createWorld
-    , positionPlayer
-    , showWorld
+      randomWorld
     , inWorld
     ) where
 
 import Rogue.Types
-import Rogue.Util (liftP, subP, addP, randElem, randR, progressBar)
+import Rogue.Util
 
-import Control.Monad.State (get, put)
-import Control.Monad.Reader (ask)
-import Control.Monad (unless, guard, when, forM_, filterM)
-import Control.Applicative ((<*>), (<*>), (<$>), pure)
-import Data.Array ((!), bounds, array, (//), Array)
+import System.Random
+import Control.Monad.Trans.State
+import Control.Monad.Trans.Reader
+import Control.Monad
+import Control.Applicative
+import Data.Array
 import Data.List (delete)
 import Data.Maybe (fromJust, isJust)
 import qualified Data.Map as M
 
 import Control.Lens
 
-showWorld :: Rogue String
-showWorld = do
-    s   <- get
-    cfg <- ask
-    
-    ((xmin,ymin), (xmax, ymax)) <- screenDimensions
+randomWorld :: StdGen -> World
+randomWorld g = runWorldGen createWorld st cfg
+  where
+    (cfg, g') = runState randWorldGenCfg g
+    st = WorldGenSt 
+            { _partialWorld = array ((0,0),(0,0)) [((0,0),EmptySpace)]
+            , _stdGenW = g'
+            , _floors = []
+            , _walls = []
+            }
 
-    let
-        actors     = (s^.player) : (s^.enemies)
-        getChar    = getCharAtPos actors (s^.world) (cfg^.worldGlyphs)
-        makeLine y = [ getChar (x,y) | x <- [xmin..xmax] ]
-        textWorld  = unlines [ makeLine y | y <- [ymin..ymax] ]
+randWorldGenCfg :: State StdGen WorldGenCfg
+randWorldGenCfg = do
+    ws <- randSizeSt ((50,25),(200,100)) 
+    minRs <- randSizeSt ((3,3),(20,10))
+    maxRs <- randSizeSt (minRs,(30,20))
+    tt <- randRSt (0.10,0.70)
+    roa <- randSt
+    num <- randRSt (20,70)
+    otts <- randSt
+    return WorldGenCfg { _worldSize = ws
+                       , _minRoomSize = minRs
+                       , _maxRoomSize = maxRs
+                       , _tunnelThreshold = tt
+                       , _roomOverlapAllowed = roa
+                       , _numTunnels = num
+                       , _onlyTerminalTunnels = otts
+                       }
+     
+randSt :: Random a => State StdGen a
+randSt = do
+    g <- get
+    let (x, g') = random g
+    put g'
+    return x
 
-    return $ textWorld
+randRSt :: Random a => (a,a) -> State StdGen a
+randRSt range = do
+    g <- get
+    let (x, g') = randomR range g
+    put g'
+    return x
 
-        
-getCharAtPos :: [Actor] -> World -> WorldGlyphMap -> Position -> Char
-getCharAtPos actors w gm pos = 
-    if pos `inWorld` w then 
-        -- if there is an actor at the position, get its glyph (contained in
-        -- the Actor datatype). Otherwise, get whatever is in the world here,
-        -- and show it. Otherwise just show a space.
-        maybe worldThing (^. glyph) $ actors ^? traversed.filtered (\x-> x^.position == pos)
-    else
-        ' ' 
-  where 
-    worldThing = let t = w ! pos in 
-            case M.lookup t gm of
-                Just (GlyphFunc f) -> f pos w
-                Just (Glyph g)     -> g
-                _ -> ' '
+randSizeSt :: Random a => ((a,a),(a,a)) -> State StdGen (a,a)
+randSizeSt ((x1,y1),(x2,y2)) = do
+    x <- randRSt (x1,x2)
+    y <- randRSt (y1,y2)
+    return (x,y)
 
-screenDimensions :: Rogue (Position, Position)
-screenDimensions = do
-    p <- use (player.position)
-    size <- view screenSize
-    let dPos = liftP (`div` 2) size
-    return (p `subP` dPos, p `addP` dPos)
-
-
-inWorld :: Position -> Array Position a -> Bool
+inWorld :: Position -> World -> Bool
 inWorld (x,y) w = 
     x > 0 && 
     y > 0 && 
@@ -69,35 +77,26 @@ inWorld (x,y) w =
   where
     (_, (maxX, maxY)) = bounds w
 
-inWorldR :: Position -> Rogue Bool
-inWorldR p = do
-    w <- use world
+inWorldW :: Position -> WorldGen Bool
+inWorldW p = do
+    w <- use partialWorld
     return $ p `inWorld` w
     
-positionPlayer :: Rogue ()
-positionPlayer = do
-    possiblePositions <- use floors
-    unless (null possiblePositions) $ do
-        newPos <- randElem possiblePositions
-        player.position .= newPos
-        floors %= delete newPos
-
-
 room :: Size -> [(Position, Thing)]
 room s@(maxX, maxY) = 
     [ ((x,y), thing (x,y)) | x <- [0..maxX], y <- [0..maxY] ]
   where
     thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Wall
-                 | otherwise = Floor
+                | otherwise = emptyFloor
 
-clearWorld :: Rogue ()
+clearWorld :: WorldGen ()
 clearWorld = do
     size@(maxX, maxY) <- view worldSize
     let w = array ((0,0), size) $ do
             x <- [0..maxX] 
             y <- [0..maxY]
-            return ((x,y),Empty)
-    world .= w
+            return ((x,y), EmptySpace)
+    partialWorld .= w
 
 directionVectors :: [Position -> Position]
 directionVectors = [north,south,east,west,northeast,northwest,southeast,southwest]
@@ -121,27 +120,27 @@ directionToVector S = directionVectors !! 1
 directionToVector E = directionVectors !! 2
 directionToVector W = directionVectors !! 3
 
-tunnelDirection :: Position -> Rogue (Maybe Direction)
+tunnelDirection :: Position -> WorldGen (Maybe Direction)
 tunnelDirection pos = do
-    w <- use world 
+    w <- use partialWorld 
     let ds = do d <- [N,S,E,W] 
                 let thing = w ! directionToVector d pos
-                guard (thing == Empty) 
+                guard (thing == EmptySpace) 
                 return d
     if not (null ds) then do
-        d <- randElem ds
+        d <- randElemW ds
         return (Just d)
     else
         return Nothing
 
-addToWorld :: [(Position, Thing)] -> Rogue ()
+addToWorld :: [(Position, Thing)] -> WorldGen ()
 addToWorld [] = return ()
 addToWorld ((pos, thing):ts) = do
-    w <- use world
+    w <- use partialWorld
     when (pos `inWorld` w) $ do
         case w ! pos of
-            Empty -> addThing (pos, thing)
-            Wall -> when (thing == Floor) $ do
+            EmptySpace -> addThing (pos, thing)
+            Wall -> when (isFloor thing) $ do
                 removeWall pos
                 addThing (pos,thing)
             _ -> return ()
@@ -154,13 +153,13 @@ addToWorld ((pos, thing):ts) = do
         else do
             fs <- use floors
             unless (p `elem` fs) $ floors %= (p:)
-        world %= (// [(p,t)])
+        partialWorld %= (// [(p,t)])
     removeWall p = do
         walls %= delete p
 
-fitsInWorld :: [(Position, Thing)] -> Rogue Bool
+fitsInWorld :: [(Position, Thing)] -> WorldGen Bool
 fitsInWorld thgs = do
-    w <- use world
+    w <- use partialWorld
     if not $ all (`inWorld` w) (fst <$> thgs) then
         return False
     else do
@@ -168,26 +167,26 @@ fitsInWorld thgs = do
         return $ (||) overlapAllowed $ and $ do
             (p,nt) <- thgs
             let wt = w ! p
-                b  = wt == Empty || (nt == Wall) && (wt == Wall)
+                b  = wt == EmptySpace || (nt == Wall) && (wt == Wall)
             return b
 
-createRoom :: Direction -> Position -> Rogue Bool
+createRoom :: Direction -> Position -> WorldGen Bool
 createRoom dir pos@(px,py) = roomLoop 0 
   where 
     roomLoop n = if n >= 3 then return False else do
         min  <- view minRoomSize
         max  <- view maxRoomSize
-        size@(rx,ry) <- randR (min, max)
+        size@(rx,ry) <- randW (min, max)
         let r = room size
             
         r' <- case dir of
-            N -> do n <- randR (1,rx-1)
+            N -> do n <- randW (1,rx-1)
                     return $ r & mapped._1 %~ addP (px - n, py - ry)
-            S -> do n <- randR (1,rx-1)
+            S -> do n <- randW (1,rx-1)
                     return $ r & mapped._1 %~ addP (px - n, py)
-            E -> do n <- randR (1,ry-1)
+            E -> do n <- randW (1,ry-1)
                     return $ r & mapped._1 %~ addP (px, py - n)
-            W -> do n <- randR (1,ry-1)
+            W -> do n <- randW (1,ry-1)
                     return $ r & mapped._1 %~ addP (px - rx, py - n)
 
         fits <- fitsInWorld r'
@@ -197,10 +196,10 @@ createRoom dir pos@(px,py) = roomLoop 0
         else
             roomLoop (n+1)        
 
-tunnel :: Position -> Direction -> Rogue Bool
+tunnel :: Position -> Direction -> WorldGen Bool
 tunnel pos dir = do
     k <- view tunnelThreshold
-    n <- randR (0,10)
+    n <- randW (0,10)
     if n > k * 10 then do
         ok <- createRoom dir pos
         if ok then do
@@ -210,7 +209,7 @@ tunnel pos dir = do
             endTunnel
     else do
         let newPos = directionToVector dir pos
-        ok <- inWorldR newPos
+        ok <- inWorldW newPos
         if ok then do
             addFloor
             tunnel newPos dir
@@ -218,37 +217,37 @@ tunnel pos dir = do
             endTunnel
   where 
     otherDirections = if dir `elem` [N,S] then [E,W] else [N,S]
-    newDirection = randElem otherDirections
+    newDirection = randElemW otherDirections
     sideWalls = [(directionToVector d pos, Wall) | d <- otherDirections]
-    addFloor = addToWorld $ (pos, Floor) : sideWalls
+    addFloor = addToWorld $ (pos, emptyFloor) : sideWalls
     endTunnel = do 
         addToWorld $ (pos, Wall) : sideWalls 
         return False
 
-makeInitialRoom :: Rogue ()
+makeInitialRoom :: WorldGen ()
 makeInitialRoom = do
-    dir <- randElem [N,S,E,W]
+    dir <- randElemW [N,S,E,W]
     maxSize <- view maxRoomSize
     ws <- view worldSize
-    pos <- randR ((0,0), ws `subP` maxSize) 
+    pos <- randW ((0,0), ws `subP` maxSize) 
     ok <- createRoom dir pos
     unless ok makeInitialRoom
 
-createWorld :: Rogue ()
+createWorld :: WorldGen World
 createWorld = do
     clearWorld
     makeInitialRoom
     makeTunnels
+    w <- use partialWorld
+    return w
 
-makeTunnels :: Rogue ()
+makeTunnels :: WorldGen ()
 makeTunnels = do
     max <- view numTunnels
-    bar <- progressBar "generating map" max
     forM_ [1..max] $ \n -> when (n < max) $ do
-        bar n
         ws <- use walls
         wallsWithAdjacentFloors <- filterM adjacentFloor ws
-        theWall <- randElem wallsWithAdjacentFloors
+        theWall <- randElemW wallsWithAdjacentFloors
         dir <- tunnelDirection theWall
         when (isJust dir) $ do
             save <- get
@@ -257,7 +256,7 @@ makeTunnels = do
             when (okOnly && not ok) $ put save
   where 
     adjacentFloor pos = do
-        w <- use world
+        w <- use partialWorld
         let things = fmap (w !) (take 4 directionVectors <*> pure pos)
-        return $ Floor `elem` things
+        return $ any isFloor things
 

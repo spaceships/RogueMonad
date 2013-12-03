@@ -4,8 +4,8 @@ module Rogue.Types where
 
 import Data.Array (Array)
 import System.Random (Random, StdGen, Random, random, randomR)
-import Control.Monad.State (StateT, evalStateT)
-import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.Trans.State
+import Control.Monad.Trans.Reader
 import Control.Lens
 
 import qualified Data.Map as M
@@ -15,26 +15,18 @@ runRogue :: Rogue () -> RConfig -> RState -> IO ()
 runRogue m c s = runReaderT (evalStateT m s) c
 
 data RState = RState 
-    { _world   :: World
+    {
+      _world   :: World
     , _enemies :: [Actor]
     , _player  :: Actor
-    , _done    :: Bool
-    , _stdGen  :: StdGen
-    , _floors  :: [Position]
-    , _walls   :: [Position]
+    , _stdGenR :: StdGen
+    , _exitGame :: Bool
     }
 
 data RConfig = RConfig 
-    { _worldSize   :: Size
-    , _minRoomSize :: Size
-    , _maxRoomSize :: Size
-    , _screenSize  :: Size
-    , _worldGlyphs :: WorldGlyphMap
+    { _screenSize  :: Size
     , _bindings    :: Bindings
-    , _tunnelThreshold :: Float
-    , _roomOverlapAllowed :: Bool
-    , _numTunnels :: Int
-    , _onlyTerminalTunnels :: Bool
+    , _glyphs      :: GlyphMap
     }
 
 data Actor = Actor 
@@ -44,22 +36,28 @@ data Actor = Actor
     , _def      :: Int
     , _position :: Position
     , _name     :: String
-    , _glyph    :: Char
     }
 
-type Bindings      = [(Char, Rogue ())]
-type Position      = (Int, Int)
-type Size          = (Int, Int)
-type World         = Array Position Thing
-type WorldGlyphMap = M.Map Thing WorldGlyph
+type Bindings = [(Char, Rogue ())]
+type Position = (Int, Int)
+type Size     = (Int, Int)
+type World    = Array Position Thing
+type Glyph    = Char
+type GlyphMap = M.Map String Char
 
-data Thing = Floor 
-           | Wall 
-           | Empty
-    deriving (Ord, Show, Eq)
+data Thing = Floor { _items :: [Item], _structure :: Maybe Structure }
+           | Wall
+           | EmptySpace
+    deriving (Show, Eq)
 
-data WorldGlyph = Glyph Char                            -- Static character
-                | GlyphFunc (Position -> World -> Char) -- Dynamic character
+emptyFloor :: Thing
+emptyFloor = Floor [] Nothing
+
+data Structure = StairsDown | StairsUp
+    deriving (Show, Eq)
+
+data Item = Item
+    deriving (Show, Eq)
 
 data Direction = N | NE | E | SE | S | SW | W | NW
     deriving (Ord, Eq, Show, Enum)
@@ -73,6 +71,31 @@ instance (Random x, Random y) => Random (x, y) where
                       (y, gen3) = random gen2
                   in ((x,y), gen3)
 
+type WorldGen = StateT WorldGenSt (Reader WorldGenCfg)
+
+runWorldGen :: WorldGen a -> WorldGenSt -> WorldGenCfg -> a
+runWorldGen m st cfg = runReader (evalStateT m st) cfg
+
+data WorldGenSt = WorldGenSt
+    { _partialWorld :: World
+    , _stdGenW :: StdGen
+    , _floors :: [Position]
+    , _walls :: [Position]
+    }
+
+data WorldGenCfg = WorldGenCfg
+    { _worldSize :: Size
+    , _minRoomSize :: Size
+    , _maxRoomSize :: Size
+    , _tunnelThreshold :: Float
+    , _roomOverlapAllowed :: Bool
+    , _numTunnels :: Int
+    , _onlyTerminalTunnels :: Bool
+    }
+
 makeLenses ''RState
 makeLenses ''RConfig
 makeLenses ''Actor
+makeLenses ''Thing
+makeLenses ''WorldGenSt
+makeLenses ''WorldGenCfg
