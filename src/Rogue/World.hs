@@ -73,7 +73,7 @@ randWorldGenCfg = do
     ws <- randSizeSt ((50,25),(200,100)) 
     minRs <- randSizeSt ((3,3),(20,10))
     maxRs <- randSizeSt (minRs,(30,20))
-    tt <- randRSt (0.10,0.70)
+    tt <- randRSt (0.40,0.90)
     roa <- randSt
     num <- randRSt (20,70)
     otts <- randSt
