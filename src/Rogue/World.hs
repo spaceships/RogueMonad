@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Rogue.World 
     (
       randomWorld
@@ -18,6 +20,42 @@ import Data.Maybe (fromJust, isJust)
 import qualified Data.Map as M
 
 import Control.Lens
+
+type WorldGen = StateT WorldGenSt (Reader WorldGenCfg)
+runWorldGen :: WorldGen a -> WorldGenSt -> WorldGenCfg -> a
+runWorldGen m st cfg = runReader (evalStateT m st) cfg
+
+data WorldGenSt = WorldGenSt
+    { _partialWorld :: World
+    , _stdGenW :: StdGen
+    , _floors :: [Position]
+    , _walls :: [Position]
+    }
+
+data WorldGenCfg = WorldGenCfg
+    { _worldSize :: Size
+    , _minRoomSize :: Size
+    , _maxRoomSize :: Size
+    , _tunnelThreshold :: Float
+    , _roomOverlapAllowed :: Bool
+    , _numTunnels :: Int
+    , _onlyTerminalTunnels :: Bool
+    }
+
+makeLenses ''WorldGenSt
+makeLenses ''WorldGenCfg
+
+randW :: Random a => (a,a) -> WorldGen a
+randW range = do
+    g <- use stdGenW
+    let (a, g') = randomR range g
+    stdGenW .= g'
+    return a
+
+randElemW :: [a] -> WorldGen a
+randElemW xs = do
+    n <- randW (0, length xs - 1)
+    return (xs !! n)
 
 randomWorld :: StdGen -> World
 randomWorld g = runWorldGen createWorld st cfg

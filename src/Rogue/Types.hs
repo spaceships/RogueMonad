@@ -71,31 +71,7 @@ instance (Random x, Random y) => Random (x, y) where
                       (y, gen3) = random gen2
                   in ((x,y), gen3)
 
-type WorldGen = StateT WorldGenSt (Reader WorldGenCfg)
-
-runWorldGen :: WorldGen a -> WorldGenSt -> WorldGenCfg -> a
-runWorldGen m st cfg = runReader (evalStateT m st) cfg
-
-data WorldGenSt = WorldGenSt
-    { _partialWorld :: World
-    , _stdGenW :: StdGen
-    , _floors :: [Position]
-    , _walls :: [Position]
-    }
-
-data WorldGenCfg = WorldGenCfg
-    { _worldSize :: Size
-    , _minRoomSize :: Size
-    , _maxRoomSize :: Size
-    , _tunnelThreshold :: Float
-    , _roomOverlapAllowed :: Bool
-    , _numTunnels :: Int
-    , _onlyTerminalTunnels :: Bool
-    }
-
 makeLenses ''RState
 makeLenses ''RConfig
 makeLenses ''Actor
 makeLenses ''Thing
-makeLenses ''WorldGenSt
-makeLenses ''WorldGenCfg

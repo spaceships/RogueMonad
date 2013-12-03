@@ -37,21 +37,9 @@ randR range = do
     stdGenR .= g'
     return a
 
-randW :: Random a => (a,a) -> WorldGen a
-randW range = do
-    g <- use stdGenW
-    let (a, g') = randomR range g
-    stdGenW .= g'
-    return a
-
 randElemR :: [a] -> Rogue a
 randElemR xs = do
     n <- randR (0, length xs - 1)
-    return (xs !! n)
-
-randElemW :: [a] -> WorldGen a
-randElemW xs = do
-    n <- randW (0, length xs - 1)
     return (xs !! n)
 
 printR :: Show a => a -> Rogue ()
