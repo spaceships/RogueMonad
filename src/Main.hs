@@ -6,11 +6,15 @@ import Rogue.Interface
 
 import Data.Array (array, (!))
 import System.Random (newStdGen, mkStdGen)
+import System.Console.ANSI
 import Control.Lens
 import qualified Data.Map as M
 
 main :: IO ()
-main = newStdGen >>= \g -> runRogue rogue demoConf demoState { _stdGenR = g }
+main = do
+    g <- newStdGen 
+    runRogue rogue demoConf demoState { _stdGenR = g }
+    putStrLn "BYE!"
 
 demoConf :: RConfig
 demoConf = RConfig 
@@ -56,7 +60,28 @@ demoChar = Actor
 
 demoGlyphs :: GlyphMap
 demoGlyphs = M.fromList 
-    [ ("Floor", '.')
-    , ("Wall", '#')
-    , ("Player", '@')
+    [ ("Floor"     , floorGlyph)
+    , ("Wall"      , wallGlyph)
+    , ("Player"    , playerGlyph)
+    , ("EmptySpace", emptySpaceGlyph)
     ]
+
+emptySpaceGlyph = Glyph 
+    { _glyph = ' '
+    , _color = [ Reset ]
+    }
+
+playerGlyph = Glyph 
+    { _glyph = '@'
+    , _color = [ SetColor Foreground Vivid White ]
+    }
+
+floorGlyph = Glyph 
+    { _glyph = '.'
+    , _color = [ SetColor Foreground Vivid Black ] 
+    } 
+
+wallGlyph = Glyph 
+    { _glyph = '#'
+    , _color = [ Reset ]
+    }

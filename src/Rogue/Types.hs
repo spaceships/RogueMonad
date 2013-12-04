@@ -7,6 +7,7 @@ import System.Random (Random, StdGen, Random, random, randomR)
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Control.Lens
+import System.Console.ANSI
 
 import qualified Data.Map as M
 
@@ -42,8 +43,9 @@ type Bindings = [(Char, Rogue ())]
 type Position = (Int, Int)
 type Size     = (Int, Int)
 type World    = Array Position Thing
-type Glyph    = Char
-type GlyphMap = M.Map String Char
+type GlyphMap = M.Map String Glyph
+
+data Glyph = Glyph { _glyph :: Char, _color :: [SGR] }
 
 data Thing = Floor { _items :: [Item], _structure :: Maybe Structure }
            | Wall
@@ -75,3 +77,4 @@ makeLenses ''RState
 makeLenses ''RConfig
 makeLenses ''Actor
 makeLenses ''Thing
+makeLenses ''Glyph

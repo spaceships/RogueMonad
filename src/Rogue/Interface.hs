@@ -9,6 +9,7 @@ import Rogue.Util
 import Rogue.World
 import Rogue.Actions
 
+import Data.List
 import Data.Maybe
 import Data.Array
 import qualified Data.Map as M
@@ -16,10 +17,10 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
-import Control.Monad (unless)
+import Control.Monad
 import Control.Lens
 import Text.Printf (printf)
-import System.Console.ANSI (hideCursor, clearScreen, showCursor, setCursorPosition)
+import System.Console.ANSI
 import System.IO (hSetBuffering, stdin, BufferMode(NoBuffering), hSetEcho)
 import Data.Maybe (fromMaybe)
 
@@ -59,47 +60,54 @@ play = untilQuit $ do
 untilQuit :: Rogue () -> Rogue ()
 untilQuit m = use exitGame >>= \d -> unless d m
 
+-- Prints the current world
 update :: Rogue ()
 update = do
     liftIO $ setCursorPosition 0 0
     status <- getStatusBar
-    world  <- showWorld
-    liftIO $ putStr (status ++ world)
+    liftIO $ putStr status
+    world <- showWorld
+    liftIO $ sequence_ world
 
 getStatusBar :: Rogue String
 getStatusBar = do
     p <- use player
     gs <- view glyphs
-    let playerGlyph = fromMaybe ' ' $ M.lookup "Player" gs
+    let playerGlyph = (gs ^?! ix "Player") ^. glyph
     width <- view (screenSize._1)
     let info = printf "| %c | acc:%d | def: %d | hp: %d/%d | (%d,%d) |" playerGlyph (p^.acc) (p^.def) (p^.hp) (p^.maxHp) (p^.position._1) (p^.position._2)
     return $ center info width ++ "\n"
 
-showWorld :: Rogue String
+showWorld :: Rogue [IO ()]
 showWorld = do
     s   <- get
     cfg <- lift ask
     ((xmin,ymin), (xmax, ymax)) <- screenDimensions
     let
         actors     = (s^.player) : (s^.enemies)
-        getChar    = getCharAtPos actors (s^.world) (cfg^.glyphs)
-        makeLine y = [ getChar (x,y) | x <- [xmin..xmax] ]
-        textWorld  = unlines [ makeLine y | y <- [ymin..ymax] ]
+        showChar   = showCharAtPos actors (s^.world) (cfg^.glyphs)
+        makeLine y = [ showChar (x,y) | x <- [xmin..xmax] ] ++ newline
+        textWorld  = join [ makeLine y | y <- [ymin..ymax] ]
     return $ textWorld
+  where
+    newline :: [IO ()]
+    newline = [putChar '\n']
 
-getCharAtPos :: [Actor] -> World -> GlyphMap -> Position -> Char
-getCharAtPos actors w gm pos  
-    -- Case 1: There is an actor at pos: display actor's glyph
-    | pos `inWorld` w && isJust actorAtPos = 
-        let actor = fromJust actorAtPos 
-        in fromMaybe '!' $ gm ^? ix (actor ^. name)
+showCharAtPos :: [Actor] -> World -> GlyphMap -> Position -> IO ()
+showCharAtPos actors w gm pos  
+    | pos `inWorld` w = do
+        let n = if isJust actorAtPos then
+                    fromJust actorAtPos ^.name
+                else
+                    simplify $ w ! pos
+            c = fromMaybe defaultGlyph $ gm ^? ix n
+        setSGR (c^.color)
+        putChar (c^.glyph)
+        setSGR [Reset]
             
-    -- Case 2: pos is in the world: display the thing there
-    | pos `inWorld` w = fromMaybe ' ' $ M.lookup (simplify $ w ! pos) gm
-
-    -- Case 3: pos is not in world: display a space
-    | otherwise = ' ' 
+    | otherwise = putChar ' '
   where 
+    defaultGlyph = Glyph { _glyph='!', _color=[SetColor Foreground Dull Black] }
     actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)
     simplify (Floor [] Nothing)    = "Floor"
     simplify (Floor (x:_) Nothing) = show x
