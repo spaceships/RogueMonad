@@ -18,6 +18,7 @@ runRogue m c s = runReaderT (evalStateT m s) c
 data RState = RState 
     {
       _world   :: World
+    , _seen    :: M.Map Position Bool
     , _enemies :: [Actor]
     , _player  :: Actor
     , _stdGenR :: StdGen

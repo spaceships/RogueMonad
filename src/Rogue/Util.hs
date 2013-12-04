@@ -23,6 +23,9 @@ addP = liftP2 (+)
 subP :: Position -> Position -> Position
 subP = liftP2 (-)
 
+distance :: Floating a => Position -> Position -> a
+distance (x1,y1) (x2,y2) = sqrt $ fromIntegral ((x2 - x1)^2 + (y2 - y1)^2)
+
 rand :: Random a => Rogue a
 rand = do
     g <- use stdGenR

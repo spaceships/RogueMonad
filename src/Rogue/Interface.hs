@@ -84,25 +84,29 @@ showWorld = do
     cfg <- lift ask
     ((xmin,ymin), (xmax, ymax)) <- screenDimensions
     let
-        actors     = (s^.player) : (s^.enemies)
-        showChar   = showCharAtPos actors (s^.world) (cfg^.glyphs)
+        showChar = showCharAtPos (s^.player) ((s^.player) : (s^.enemies)) (s^.world) (cfg^.glyphs)
         makeLine y = [ showChar (x,y) | x <- [xmin..xmax] ] ++ newline
-        textWorld  = join [ makeLine y | y <- [ymin..ymax] ]
+        textWorld = join [ makeLine y | y <- [ymin..ymax] ]
     return $ textWorld
   where
     newline :: [IO ()]
     newline = [putChar '\n']
 
-showCharAtPos :: [Actor] -> World -> GlyphMap -> Position -> IO ()
-showCharAtPos actors w gm pos  
+showCharAtPos :: Actor -> [Actor] -> World -> GlyphMap -> Position -> IO ()
+showCharAtPos player actors w gm pos  
     | pos `inWorld` w = do
         let n = if isJust actorAtPos then
                     fromJust actorAtPos ^.name
                 else
                     simplify $ w ! pos
-            c = fromMaybe defaultGlyph $ gm ^? ix n
-        setSGR (c^.color)
-        putChar (c^.glyph)
+            g = fromMaybe defaultGlyph $ gm ^? ix n
+            
+            c = if canSee player w pos then 
+                    g^.color 
+                else 
+                    defaultGlyph^.color
+        setSGR c
+        putChar (g^.glyph)
         setSGR [Reset]
             
     | otherwise = putChar ' '
@@ -121,3 +125,6 @@ screenDimensions = do
     let dPos = liftP (`div` 2) size
     return (p `subP` dPos, p `addP` dPos)
 
+canSee :: Actor -> World -> Position -> Bool
+canSee actor w targetPos = distance actorPos targetPos < 10
+  where actorPos = actor^.position
