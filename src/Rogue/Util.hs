@@ -7,6 +7,10 @@ import System.Console.ANSI (clearScreen, setCursorPosition)
 import Control.Monad.IO.Class (liftIO)
 import Control.Lens
 
+canSee :: Actor -> World -> Position -> Bool
+canSee actor w targetPos = distance actorPos targetPos < 10
+  where actorPos = actor^.position
+
 isFloor :: Thing -> Bool
 isFloor (Floor _ _) = True
 isFloor _ = False

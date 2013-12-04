@@ -9,6 +9,7 @@ import System.Random (newStdGen, mkStdGen)
 import System.Console.ANSI
 import Control.Lens
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 main :: IO ()
 main = do
@@ -30,6 +31,7 @@ demoState = RState
     , _player = demoChar
     , _exitGame = False
     , _stdGenR = mkStdGen 0
+    , _seen = S.empty
     }
 
 demoWorldSize = (200, 90)

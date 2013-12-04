@@ -17,6 +17,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad
 import Control.Lens
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 positionPlayer :: Rogue ()
 positionPlayer = do
@@ -25,6 +26,7 @@ positionPlayer = do
     unless (null possiblePositions) $ do
         newPos <- randElemR possiblePositions
         player.position .= newPos
+        viewTiles newPos
 
 move :: Direction -> Rogue ()
 move d = void $ runMaybeT $ do
@@ -35,6 +37,7 @@ move d = void $ runMaybeT $ do
     guard (isFloor (w ! newPos))
     guard (not $ anyOf (enemies.traverse.position) (== newPos) s)
     player.position .= newPos
+    lift $ viewTiles newPos
         
 dirToPos :: Direction -> Position
 dirToPos d = case d of 
@@ -49,3 +52,17 @@ dirToPos d = case d of
 
 quit :: Rogue ()
 quit = exitGame .= True
+
+viewTiles :: Position -> Rogue ()
+viewTiles p1@(x,y) = do
+    w <- use world 
+    s <- use seen
+    mapM_ viewTile $ do
+        x' <- [x-10..x+10]
+        y' <- [y-10..y+10]
+        let p2 = (x',y')
+        guard $ distance p1 p2 < 10
+        return p2
+   
+viewTile :: Position -> Rogue ()
+viewTile p = seen %= S.insert p

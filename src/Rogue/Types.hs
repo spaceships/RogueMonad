@@ -10,6 +10,7 @@ import Control.Lens
 import System.Console.ANSI
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 type Rogue = StateT RState (ReaderT RConfig IO)
 runRogue :: Rogue () -> RConfig -> RState -> IO ()
@@ -18,7 +19,7 @@ runRogue m c s = runReaderT (evalStateT m s) c
 data RState = RState 
     {
       _world   :: World
-    , _seen    :: M.Map Position Bool
+    , _seen    :: S.Set Position
     , _enemies :: [Actor]
     , _player  :: Actor
     , _stdGenR :: StdGen

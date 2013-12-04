@@ -12,10 +12,13 @@ import Rogue.Actions
 import Data.List
 import Data.Maybe
 import Data.Array
+import Data.Functor
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.List
 import Control.Monad.IO.Class
 import Control.Monad
 import Control.Lens
@@ -35,6 +38,7 @@ genWorld :: Rogue ()
 genWorld = do
     g <- use stdGenR
     world .= randomWorld g
+    seen .= S.empty
     positionPlayer
 
 setTermOpts :: IO ()
@@ -83,36 +87,37 @@ showWorld = do
     s   <- get
     cfg <- lift ask
     ((xmin,ymin), (xmax, ymax)) <- screenDimensions
-    let
-        showChar = showCharAtPos (s^.player) ((s^.player) : (s^.enemies)) (s^.world) (cfg^.glyphs)
-        makeLine y = [ showChar (x,y) | x <- [xmin..xmax] ] ++ newline
-        textWorld = join [ makeLine y | y <- [ymin..ymax] ]
-    return $ textWorld
+    --  makeLine :: Int -> Rogue [IO ()]
+    let makeLine y = (++ newline) <$> mapM showCharAtPos [(x,y) | x <- [xmin..xmax]]
+    join <$> sequence [makeLine y | y <- [ymin..ymax]]
   where
     newline :: [IO ()]
     newline = [putChar '\n']
 
-showCharAtPos :: Actor -> [Actor] -> World -> GlyphMap -> Position -> IO ()
-showCharAtPos player actors w gm pos  
-    | pos `inWorld` w = do
-        let n = if isJust actorAtPos then
-                    fromJust actorAtPos ^.name
-                else
-                    simplify $ w ! pos
+showCharAtPos :: Position -> Rogue (IO ())
+showCharAtPos pos = do
+    w <- use world
+    es <- use enemies
+    p <- use player
+    ss <- use seen
+    gm <- view glyphs
+    let actors = p : es
+        actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)
+    if pos `inWorld` w && S.member pos ss then return $ do
+        let n = if isJust actorAtPos 
+                then fromJust actorAtPos ^.name
+                else simplify $ w ! pos
             g = fromMaybe defaultGlyph $ gm ^? ix n
-            
-            c = if canSee player w pos then 
-                    g^.color 
-                else 
-                    defaultGlyph^.color
+            c = if canSee p w pos
+                then g^.color 
+                else defaultGlyph^.color
         setSGR c
         putChar (g^.glyph)
         setSGR [Reset]
-            
-    | otherwise = putChar ' '
+    else 
+        return $ putChar ' '
   where 
     defaultGlyph = Glyph { _glyph='!', _color=[SetColor Foreground Dull Black] }
-    actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)
     simplify (Floor [] Nothing)    = "Floor"
     simplify (Floor (x:_) Nothing) = show x
     simplify (Floor _ (Just s))    = show s
@@ -124,7 +129,3 @@ screenDimensions = do
     size <- view screenSize
     let dPos = liftP (`div` 2) size
     return (p `subP` dPos, p `addP` dPos)
-
-canSee :: Actor -> World -> Position -> Bool
-canSee actor w targetPos = distance actorPos targetPos < 10
-  where actorPos = actor^.position
