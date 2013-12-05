@@ -6,18 +6,18 @@ module Rogue.Actions
     ) where
 
 import Rogue.Types
-import Rogue.Util
+import Rogue.Util (isFloor, randElemR, addP, circlePoints', segment, takeWhile')
 import Rogue.World (inWorld)
 
 import Data.List (delete)
-import Data.Array
+import Data.Array (assocs, (!))
+import Control.Monad (unless, void, guard, forM_)
+import qualified Data.Map as M
+import qualified Data.Set as S
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Maybe
-import Control.Monad
 import Control.Lens
-import qualified Data.Map as M
-import qualified Data.Set as S
 
 positionPlayer :: Rogue ()
 positionPlayer = do
@@ -58,7 +58,6 @@ viewTiles p1@(x,y) = do
     w <- use world 
     r <- view viewRadius
     visible .= S.empty
-    testCircle .= circle p1 (r + 1) w
     mapM_ viewTile (visibleTiles p1 r w)
 
 circle :: Position -> Int -> World -> S.Set Position

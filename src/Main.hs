@@ -6,10 +6,10 @@ import Rogue.Interface
 
 import Data.Array (array, (!))
 import System.Random (newStdGen, mkStdGen)
-import System.Console.ANSI
-import Control.Lens
 import qualified Data.Map as M
 import qualified Data.Set as S
+import System.Console.ANSI
+import Control.Lens
 
 main :: IO ()
 main = do
@@ -34,7 +34,6 @@ demoState = RState
     , _stdGenR = mkStdGen 0
     , _seen = S.empty
     , _visible = S.empty
-    , _testCircle = S.empty -- TEST
     }
 
 demoWorldSize = (200, 90)

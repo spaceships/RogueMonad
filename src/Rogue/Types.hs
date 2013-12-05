@@ -4,10 +4,10 @@ module Rogue.Types where
 
 import Data.Array (Array)
 import System.Random (Random, StdGen, Random, random, randomR)
+import System.Console.ANSI (SGR)
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Control.Lens
-import System.Console.ANSI
 
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -25,7 +25,6 @@ data RState = RState
     , _player  :: Actor
     , _stdGenR :: StdGen
     , _exitGame :: Bool
-    , _testCircle :: S.Set Position -- TEST
     }
 
 data RConfig = RConfig 

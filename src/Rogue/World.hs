@@ -7,18 +7,17 @@ module Rogue.World
     ) where
 
 import Rogue.Types
-import Rogue.Util
+import Rogue.Util (addP, subP, isFloor)
 
-import System.Random
+import Data.Array (bounds, array, (!), (//))
+import Data.List (delete)
+import Data.Maybe (fromJust, isJust)
+import qualified Data.Map as M
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Control.Monad
 import Control.Applicative
-import Data.Array
-import Data.List (delete)
-import Data.Maybe (fromJust, isJust)
-import qualified Data.Map as M
-
+import System.Random
 import Control.Lens
 
 type WorldGen = StateT WorldGenSt (Reader WorldGenCfg)

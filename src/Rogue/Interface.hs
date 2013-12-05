@@ -9,23 +9,21 @@ import Rogue.Util
 import Rogue.World
 import Rogue.Actions
 
-import Data.List
-import Data.Maybe
-import Data.Array
-import Data.Functor
+import Data.Maybe (isJust, fromJust)
+import Data.Array ((!))
+import Control.Monad (join, unless)
+import Text.Printf (printf)
+import System.Console.ANSI
+import System.IO (hSetBuffering, stdin, BufferMode(NoBuffering), hSetEcho)
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
-import Control.Monad.Trans.List
 import Control.Monad.IO.Class
-import Control.Monad
+import Data.Functor
 import Control.Lens
-import Text.Printf (printf)
-import System.Console.ANSI
-import System.IO (hSetBuffering, stdin, BufferMode(NoBuffering), hSetEcho)
-import Data.Maybe (fromMaybe)
 
 rogue :: Rogue ()
 rogue = do
@@ -102,10 +100,8 @@ showCharAtPos pos = do
     ss <- use seen
     vs <- use visible
     gm <- view glyphs
-    --ct <- use testCircle
     let actors = p : es
         actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)
-        --cTest = S.member pos ct
     if pos `inWorld` w && S.member pos ss then return $ do
         let n = if isJust actorAtPos 
                 then fromJust actorAtPos ^.name
@@ -115,13 +111,9 @@ showCharAtPos pos = do
                 then g^.color 
                 else defaultGlyph^.color
         setSGR c
-        --when (cTest) $ setSGR [SetColor Background Dull Blue]
         putChar (g^.glyph)
         setSGR [Reset]
-    else return $ do
-        --when (cTest) $ setSGR [SetColor Background Dull Blue]
-        putChar ' '
-        --when (cTest) $ setSGR [Reset]
+    else return $ putChar ' '
   where 
     defaultGlyph = Glyph { _glyph=' ', _color=[SetColor Foreground Dull Black] }
     simplify (Floor [] Nothing)    = "Floor"
