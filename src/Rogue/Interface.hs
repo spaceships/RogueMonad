@@ -100,24 +100,30 @@ showCharAtPos pos = do
     es <- use enemies
     p <- use player
     ss <- use seen
+    vs <- use visible
     gm <- view glyphs
+    --ct <- use testCircle
     let actors = p : es
         actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)
+        --cTest = S.member pos ct
     if pos `inWorld` w && S.member pos ss then return $ do
         let n = if isJust actorAtPos 
                 then fromJust actorAtPos ^.name
                 else simplify $ w ! pos
             g = fromMaybe defaultGlyph $ gm ^? ix n
-            c = if canSee p w pos
+            c = if S.member (pos) vs
                 then g^.color 
                 else defaultGlyph^.color
         setSGR c
+        --when (cTest) $ setSGR [SetColor Background Dull Blue]
         putChar (g^.glyph)
         setSGR [Reset]
-    else 
-        return $ putChar ' '
+    else return $ do
+        --when (cTest) $ setSGR [SetColor Background Dull Blue]
+        putChar ' '
+        --when (cTest) $ setSGR [Reset]
   where 
-    defaultGlyph = Glyph { _glyph='!', _color=[SetColor Foreground Dull Black] }
+    defaultGlyph = Glyph { _glyph=' ', _color=[SetColor Foreground Dull Black] }
     simplify (Floor [] Nothing)    = "Floor"
     simplify (Floor (x:_) Nothing) = show x
     simplify (Floor _ (Just s))    = show s

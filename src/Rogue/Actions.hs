@@ -56,13 +56,25 @@ quit = exitGame .= True
 viewTiles :: Position -> Rogue ()
 viewTiles p1@(x,y) = do
     w <- use world 
-    s <- use seen
-    mapM_ viewTile $ do
-        x' <- [x-10..x+10]
-        y' <- [y-10..y+10]
-        let p2 = (x',y')
-        guard $ distance p1 p2 < 10
-        return p2
-   
+    r <- view viewRadius
+    visible .= S.empty
+    testCircle .= circle p1 (r + 1) w
+    mapM_ viewTile (visibleTiles p1 r w)
+
+circle :: Position -> Int -> World -> S.Set Position
+circle p r w = S.fromList $ circlePoints' p r
+
 viewTile :: Position -> Rogue ()
-viewTile p = seen %= S.insert p
+viewTile p = do
+    seen %= S.insert p
+    visible %= S.insert p
+
+visibleTiles :: Position -> Int -> World -> [Position]
+visibleTiles p1 r w = S.toList $ execState addPositions S.empty
+  where
+    endPts = circlePoints' p1 r
+    addPositions :: State (S.Set Position) ()
+    addPositions = forM_ endPts $ \p2 -> do 
+        let seg = segment p1 p2 r
+        let ps = takeWhile' (\p -> inWorld p w && (isFloor $ w ! p)) seg
+        mapM_ (\p -> modify (S.insert p)) ps

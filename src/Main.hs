@@ -19,9 +19,10 @@ main = do
 
 demoConf :: RConfig
 demoConf = RConfig 
-    { _screenSize = (80, 22)
+    { _screenSize = (80, 40)
     , _glyphs = demoGlyphs
     , _bindings = demoBindings
+    , _viewRadius = 11
     }
 
 demoState :: RState
@@ -32,6 +33,8 @@ demoState = RState
     , _exitGame = False
     , _stdGenR = mkStdGen 0
     , _seen = S.empty
+    , _visible = S.empty
+    , _testCircle = S.empty -- TEST
     }
 
 demoWorldSize = (200, 90)

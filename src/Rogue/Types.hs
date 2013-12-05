@@ -20,16 +20,19 @@ data RState = RState
     {
       _world   :: World
     , _seen    :: S.Set Position
+    , _visible :: S.Set Position
     , _enemies :: [Actor]
     , _player  :: Actor
     , _stdGenR :: StdGen
     , _exitGame :: Bool
+    , _testCircle :: S.Set Position -- TEST
     }
 
 data RConfig = RConfig 
-    { _screenSize  :: Size
-    , _bindings    :: Bindings
-    , _glyphs      :: GlyphMap
+    { _screenSize :: Size
+    , _bindings   :: Bindings
+    , _glyphs     :: GlyphMap
+    , _viewRadius :: Int
     }
 
 data Actor = Actor 
