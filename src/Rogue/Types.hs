@@ -4,10 +4,10 @@ module Rogue.Types where
 
 import Data.Array (Array)
 import System.Random (Random, StdGen, Random, random, randomR)
-import System.Console.ANSI (SGR)
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Control.Lens
+import Graphics.Vty
 
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -28,10 +28,10 @@ data RState = RState
     }
 
 data RConfig = RConfig 
-    { _screenSize :: Size
-    , _bindings   :: Bindings
+    { _bindings   :: Bindings
     , _glyphs     :: GlyphMap
     , _viewRadius :: Int
+    , _term       :: Vty
     }
 
 data Actor = Actor 
@@ -43,13 +43,13 @@ data Actor = Actor
     , _name     :: String
     }
 
-type Bindings = [(Char, Rogue ())]
+type Bindings = M.Map Event (Rogue ())
 type Position = (Int, Int)
 type Size     = (Int, Int)
 type World    = Array Position Thing
 type GlyphMap = M.Map String Glyph
 
-data Glyph = Glyph { _glyph :: Char, _color :: [SGR] }
+data Glyph = Glyph { _glyph :: Char, _color :: Attr }
 
 data Thing = Floor { _items :: [Item], _structure :: Maybe Structure }
            | Wall

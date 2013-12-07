@@ -3,53 +3,53 @@ module Main where
 import Rogue.Types
 import Rogue.Actions
 import Rogue.Interface
+import Rogue.World
+import Rogue.Util
 
 import Data.Array (array, (!))
 import System.Random (newStdGen, mkStdGen)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import System.Console.ANSI
 import Control.Lens
+import Graphics.Vty
 
 main :: IO ()
 main = do
+    vty <- mkVty
     g <- newStdGen 
-    runRogue rogue demoConf demoState { _stdGenR = g }
+
+    let w = randomWorld g
+        demoConf = RConfig { _glyphs = demoGlyphs
+                           , _bindings = demoBindings
+                           , _viewRadius = 11
+                           , _term = vty
+                           }
+
+        demoState = RState { _world = w
+                           , _enemies = []
+                           , _player = demoChar
+                           , _exitGame = False
+                           , _stdGenR = g
+                           , _seen = S.empty
+                           , _visible = S.empty
+                           }
+
+    runRogue rogue demoConf demoState
+    shutdown vty
     putStrLn "BYE!"
 
-demoConf :: RConfig
-demoConf = RConfig 
-    { _screenSize = (80, 40)
-    , _glyphs = demoGlyphs
-    , _bindings = demoBindings
-    , _viewRadius = 11
-    }
-
-demoState :: RState
-demoState = RState 
-    { _world = array ((0,0), demoWorldSize) [((x,y), EmptySpace) | x <- [0..10], y <- [0..10]]
-    , _enemies = []
-    , _player = demoChar
-    , _exitGame = False
-    , _stdGenR = mkStdGen 0
-    , _seen = S.empty
-    , _visible = S.empty
-    }
-
-demoWorldSize = (200, 90)
-
 demoBindings :: Bindings
-demoBindings = 
-    [ ('j', move S)
-    , ('k', move N)
-    , ('h', move W)
-    , ('l', move E)
-    , ('b', move SW)
-    , ('n', move SE)
-    , ('y', move NW)
-    , ('u', move NE)
-    , ('\ESC', quit)
-    , ('r', genWorld)
+demoBindings = M.fromList
+    [ (EvKey (KASCII 'j') [], move S)
+    , (EvKey (KASCII 'k') [], move N)
+    , (EvKey (KASCII 'h') [], move W)
+    , (EvKey (KASCII 'l') [], move E)
+    , (EvKey (KASCII 'b') [], move SW)
+    , (EvKey (KASCII 'n') [], move SE)
+    , (EvKey (KASCII 'y') [], move NW)
+    , (EvKey (KASCII 'u') [], move NE)
+    , (EvKey (KASCII 'r') [], genWorld)
+    , (EvKey KEsc [], quit)
     ]
 
 demoChar :: Actor
@@ -64,28 +64,28 @@ demoChar = Actor
 
 demoGlyphs :: GlyphMap
 demoGlyphs = M.fromList 
-    [ ("Floor"     , floorGlyph)
-    , ("Wall"      , wallGlyph)
-    , ("Player"    , playerGlyph)
-    , ("EmptySpace", emptySpaceGlyph)
+    [ ("Floor"       , floorGlyph)
+    , ("Wall"        , wallGlyph)
+    , ("Player"      , playerGlyph)
+    , ("EmptySpace"  , emptySpaceGlyph)
     ]
 
 emptySpaceGlyph = Glyph 
     { _glyph = ' '
-    , _color = [ Reset ]
+    , _color = def_attr `with_fore_color` black
     }
 
 playerGlyph = Glyph 
     { _glyph = '@'
-    , _color = [ SetColor Foreground Vivid White ]
+    , _color = Attr (SetTo bold) (SetTo $ bright_white) Default
     }
 
 floorGlyph = Glyph 
     { _glyph = '.'
-    , _color = [ SetColor Foreground Vivid Black ] 
+    , _color = def_attr `with_fore_color` bright_black
     } 
 
 wallGlyph = Glyph 
     { _glyph = '#'
-    , _color = [ Reset ]
+    , _color = def_attr `with_fore_color` (Color240 74)
     }

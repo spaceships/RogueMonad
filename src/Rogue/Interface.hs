@@ -13,8 +13,6 @@ import Data.Maybe (isJust, fromJust)
 import Data.Array ((!))
 import Control.Monad (join, unless)
 import Text.Printf (printf)
-import System.Console.ANSI
-import System.IO (hSetBuffering, stdin, BufferMode(NoBuffering), hSetEcho)
 import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -24,13 +22,7 @@ import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Data.Functor
 import Control.Lens
-
-rogue :: Rogue ()
-rogue = do
-    liftIO setTermOpts
-    genWorld
-    play
-    liftIO unsetTermOpts
+import Graphics.Vty
 
 genWorld :: Rogue ()
 genWorld = do
@@ -39,83 +31,59 @@ genWorld = do
     seen .= S.empty
     positionPlayer
 
-setTermOpts :: IO ()
-setTermOpts = do 
-    hSetBuffering stdin NoBuffering
-    hideCursor
-    clearScreen
-    hSetEcho stdin False
-
-unsetTermOpts :: IO ()
-unsetTermOpts = do
-    hSetEcho stdin True
-    showCursor
+rogue :: Rogue ()
+rogue = do
+    positionPlayer
+    play
 
 play :: Rogue ()
 play = untilQuit $ do
+    vty <- view term
+    updateR
+    k <- liftIO $ next_event vty
     keys <- view bindings
-    update
-    k <- liftIO getChar
-    fromMaybe (return ()) (lookup k keys)
+    fromMaybe ((here $ "unrec key: " ++ show k) >> wait) (M.lookup k keys)
     play
 
 untilQuit :: Rogue () -> Rogue ()
 untilQuit m = use exitGame >>= \d -> unless d m
 
 -- Prints the current world
-update :: Rogue ()
-update = do
-    liftIO $ setCursorPosition 0 0
-    status <- getStatusBar
-    liftIO $ putStr status
+updateR :: Rogue ()
+updateR = do
+    vty <- view term
     world <- showWorld
-    liftIO $ sequence_ world
+    liftIO $ update vty $ pic_for_image world
 
-getStatusBar :: Rogue String
-getStatusBar = do
-    p <- use player
-    gs <- view glyphs
-    let playerGlyph = (gs ^?! ix "Player") ^. glyph
-    width <- view (screenSize._1)
-    let info = printf "| %c | acc:%d | def: %d | hp: %d/%d | (%d,%d) |" playerGlyph (p^.acc) (p^.def) (p^.hp) (p^.maxHp) (p^.position._1) (p^.position._2)
-    return $ center info width ++ "\n"
-
-showWorld :: Rogue [IO ()]
+showWorld :: Rogue Image
 showWorld = do
-    s   <- get
-    cfg <- lift ask
     ((xmin,ymin), (xmax, ymax)) <- screenDimensions
-    --  makeLine :: Int -> Rogue [IO ()]
-    let makeLine y = (++ newline) <$> mapM showCharAtPos [(x,y) | x <- [xmin..xmax]]
-    join <$> sequence [makeLine y | y <- [ymin..ymax]]
-  where
-    newline :: [IO ()]
-    newline = [putChar '\n']
+    let makeLine y = horiz_cat <$> mapM charAtPos [(x,y) | x <- [xmin..xmax]]
+    vert_cat <$> sequence [makeLine y | y <- [ymin..ymax]]
 
-showCharAtPos :: Position -> Rogue (IO ())
-showCharAtPos pos = do
-    w <- use world
+charAtPos :: Position -> Rogue Image
+charAtPos pos = do
+    w  <- use world
     es <- use enemies
-    p <- use player
+    p  <- use player
     ss <- use seen
     vs <- use visible
     gm <- view glyphs
     let actors = p : es
         actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)
-    if pos `inWorld` w && S.member pos ss then return $ do
-        let n = if isJust actorAtPos 
-                then fromJust actorAtPos ^.name
-                else simplify $ w ! pos
-            g = fromMaybe defaultGlyph $ gm ^? ix n
-            c = if S.member (pos) vs
-                then g^.color 
-                else defaultGlyph^.color
-        setSGR c
-        putChar (g^.glyph)
-        setSGR [Reset]
-    else return $ putChar ' '
+        emptySpace = gm ^?! ix "EmptySpace"
+    if pos `inWorld` w && S.member pos ss then return $
+        let n    = if isJust actorAtPos 
+                   then fromJust actorAtPos ^.name
+                   else simplify $ w ! pos
+            gly  = fromMaybe emptySpace $ gm ^? ix n
+            attr = if S.member (pos) vs
+                   then gly^.color 
+                   else emptySpace^.color
+            chr  = gly^.glyph
+        in char attr chr
+    else return $ char (emptySpace^.color) (emptySpace^.glyph)
   where 
-    defaultGlyph = Glyph { _glyph=' ', _color=[SetColor Foreground Dull Black] }
     simplify (Floor [] Nothing)    = "Floor"
     simplify (Floor (x:_) Nothing) = show x
     simplify (Floor _ (Just s))    = show s
@@ -124,6 +92,7 @@ showCharAtPos pos = do
 screenDimensions :: Rogue (Position, Position)
 screenDimensions = do
     p <- use (player.position)
-    size <- view screenSize
-    let dPos = liftP (`div` 2) size
+    t <- terminal_handle
+    DisplayRegion x y <- display_bounds t
+    let dPos = liftP (`div` 2) (fromIntegral x, fromIntegral y)
     return (p `subP` dPos, p `addP` dPos)

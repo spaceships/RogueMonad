@@ -4,10 +4,23 @@ import Rogue.Types
 
 import Data.List (unfoldr)
 import System.Random (Random, random, randomR)
-import System.Console.ANSI (clearScreen, setCursorPosition)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
+import Text.Printf
 import Control.Lens
+import Graphics.Vty
+
+here :: String -> Rogue ()
+here msg = do
+    v <- view term
+    liftIO $ update v $ pic_for_image $ string def_attr msg
+    return ()
+
+wait :: Rogue ()
+wait = do
+    v <- view term
+    _ <- liftIO $ next_event v
+    return ()
 
 -- modified takeWhile that also takes the first elem to fail p
 takeWhile' :: (a -> Bool) -> [a] -> [a]
@@ -117,18 +130,3 @@ center s w = replicate left ' ' ++ s ++ replicate right ' '
     toBeFilled = w - l
     (both, leftAdd) = toBeFilled `divMod` 2
     (left, right) = (both + leftAdd, both)
-
-progressBar :: String -> Int -> Rogue (Int -> Rogue ())
-progressBar label total = do
-    liftIO clearScreen
-    (maxX,maxY) <- view screenSize
-    let length = 20
-        y = maxY `div` 2
-    liftIO $ setCursorPosition (y-1) 0
-    liftIO $ putStrLn (center label maxX)
-    return $ \n -> do
-        liftIO $ setCursorPosition y 0
-        let p = floor ((fromIntegral n / fromIntegral total)
-                        * fromIntegral length)
-            s = "|" ++ replicate p '=' ++ replicate (length - p) ' ' ++ "|"
-        liftIO $ putStr $ center s maxX
