@@ -6,11 +6,10 @@ A simple roguelike.
 Running
 -------
 
-Install the dependencies:
+Install to ~/.cabal/bin
 
 >   cabal install
 
-Play!
+Or just run it
 
 >   cabal run
-
