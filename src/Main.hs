@@ -4,6 +4,7 @@ import Rogue.Types
 import Rogue.Actions
 import Rogue.Interface
 import Rogue.World
+import Rogue.WorldGen
 import Rogue.Util
 
 import Data.Array (array, (!))
@@ -28,7 +29,7 @@ main = do
         demoState = RState { _world = w
                            , _enemies = []
                            , _player = demoChar
-                           , _exitGame = False
+                           , _exitGameNow = False
                            , _stdGenR = g
                            , _seen = S.empty
                            , _visible = S.empty
@@ -36,7 +37,6 @@ main = do
 
     runRogue rogue demoConf demoState
     shutdown vty
-    putStrLn "BYE!"
 
 demoBindings :: Bindings
 demoBindings = M.fromList
@@ -48,7 +48,7 @@ demoBindings = M.fromList
     , (EvKey (KASCII 'n') [], move SE)
     , (EvKey (KASCII 'y') [], move NW)
     , (EvKey (KASCII 'u') [], move NE)
-    , (EvKey (KASCII 'r') [], genWorld)
+    , (EvKey (KASCII 'r') [], genNewWorld)
     , (EvKey KEsc [], quit)
     ]
 

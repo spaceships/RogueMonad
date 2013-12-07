@@ -18,13 +18,13 @@ runRogue m c s = runReaderT (evalStateT m s) c
 
 data RState = RState 
     {
-      _world   :: World
-    , _seen    :: S.Set Position
-    , _visible :: S.Set Position
-    , _enemies :: [Actor]
-    , _player  :: Actor
-    , _stdGenR :: StdGen
-    , _exitGame :: Bool
+      _world       :: World
+    , _seen        :: S.Set Position
+    , _visible     :: S.Set Position
+    , _enemies     :: [Actor]
+    , _player      :: Actor
+    , _stdGenR     :: StdGen
+    , _exitGameNow :: Bool
     }
 
 data RConfig = RConfig 

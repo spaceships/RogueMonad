@@ -1,7 +1,6 @@
 module Rogue.Interface 
     (
       rogue
-    , genWorld
     ) where
 
 import Rogue.Types
@@ -24,13 +23,6 @@ import Data.Functor
 import Control.Lens
 import Graphics.Vty
 
-genWorld :: Rogue ()
-genWorld = do
-    g <- use stdGenR
-    world .= randomWorld g
-    seen .= S.empty
-    positionPlayer
-
 rogue :: Rogue ()
 rogue = do
     positionPlayer
@@ -42,11 +34,11 @@ play = untilQuit $ do
     updateR
     k <- liftIO $ next_event vty
     keys <- view bindings
-    fromMaybe ((here $ "unrec key: " ++ show k) >> wait) (M.lookup k keys)
+    fromMaybe (return ()) (M.lookup k keys)
     play
 
 untilQuit :: Rogue () -> Rogue ()
-untilQuit m = use exitGame >>= \d -> unless d m
+untilQuit m = use exitGameNow >>= \d -> unless d m
 
 -- Prints the current world
 updateR :: Rogue ()

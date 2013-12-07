@@ -6,16 +6,19 @@ import Data.List (unfoldr)
 import System.Random (Random, random, randomR)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
+import Data.Array
 import Text.Printf
 import Control.Lens
 import Graphics.Vty
 
-here :: String -> Rogue ()
-here msg = do
+-- draw message on screen (as only thing)
+alert :: String -> Rogue ()
+alert msg = do
     v <- view term
     liftIO $ update v $ pic_for_image $ string def_attr msg
     return ()
 
+-- Wait for user to press a key
 wait :: Rogue ()
 wait = do
     v <- view term
@@ -30,7 +33,7 @@ takeWhile' _ [] = []
 segment :: Position -> Position -> Int -> [Position]
 segment p1 p2 r = takeWhile lessThanR $ line p1 p2
   where
-    lessThanR p3 = distance p1 p3 < fromIntegral r
+    lessThanR p3 = ceiling (distance p1 p3) <= fromIntegral r
 
 -- Bresenham's line algorithm.
 -- Includes the first point and goes through the second to infinity.
@@ -82,10 +85,6 @@ circlePoints p@(x0,y0) r =
         ddf_x' = ddf_x + 2
         x'     = x + 1
 
-isFloor :: Thing -> Bool
-isFloor (Floor _ _) = True
-isFloor _ = False
-
 liftP :: (a -> b) -> (a, a) -> (b, b)
 liftP f (a, b) = (f a, f b)
 
@@ -120,9 +119,6 @@ randElemR xs = do
     n <- randR (0, length xs - 1)
     return (xs !! n)
 
-printR :: Show a => a -> Rogue ()
-printR = liftIO . print
-
 center :: String -> Int -> String
 center s w = replicate left ' ' ++ s ++ replicate right ' '
   where
@@ -130,3 +126,16 @@ center s w = replicate left ' ' ++ s ++ replicate right ' '
     toBeFilled = w - l
     (both, leftAdd) = toBeFilled `divMod` 2
     (left, right) = (both + leftAdd, both)
+
+isFloor :: Thing -> Bool
+isFloor (Floor _ _) = True
+isFloor _ = False
+
+inWorld :: Position -> World -> Bool
+inWorld (x,y) w = 
+    x > 0 && 
+    y > 0 && 
+    x < maxX && 
+    y < maxY
+  where
+    (_, (maxX, maxY)) = bounds w
