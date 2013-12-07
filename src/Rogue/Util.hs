@@ -131,6 +131,19 @@ isFloor :: Thing -> Bool
 isFloor (Floor _ _) = True
 isFloor _ = False
 
+isDownStair :: Thing -> Bool
+isDownStair (Floor _ (Just StairsDown)) = True
+isDownStair _ = False
+
+isUpStair :: Thing -> Bool
+isUpStair (Floor _ (Just StairsUp)) = True
+isUpStair _ = False
+
+hasNoStructure :: Thing -> Bool
+hasNoStructure (Floor _ Nothing) = True
+hasNoStructure (Floor _ _ )      = False
+hasNoStructure _                 = False
+
 inWorld :: Position -> World -> Bool
 inWorld (x,y) w = 
     x > 0 && 

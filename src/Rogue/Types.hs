@@ -6,8 +6,9 @@ import Data.Array (Array)
 import System.Random (Random, StdGen, Random, random, randomR)
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
-import Control.Lens
+import Control.Lens hiding (Level)
 import Graphics.Vty
+import Data.Array
 
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -17,14 +18,31 @@ runRogue :: Rogue () -> RConfig -> RState -> IO ()
 runRogue m c s = runReaderT (evalStateT m s) c
 
 data RState = RState 
-    {
-      _world       :: World
-    , _seen        :: S.Set Position
-    , _visible     :: S.Set Position
-    , _enemies     :: [Actor]
-    , _player      :: Actor
-    , _stdGenR     :: StdGen
-    , _exitGameNow :: Bool
+    { _player       :: Actor
+    , _stdGenR      :: StdGen
+    , _exitGameNow  :: Bool
+    , _depth        :: Int
+    , _currentLevel :: Level
+    , _upperLevels  :: [Level]
+    , _lowerLevels  :: [Level]
+    }
+
+data Level = Level
+    { _seen       :: S.Set Position -- Positions on this level seen already
+    , _visible    :: S.Set Position -- Positions visible from player's current spot
+    , _enemies    :: [Actor]
+    , _world      :: World
+    , _stairsDown :: M.Map Position Position
+    , _stairsUp   :: M.Map Position Position
+    }
+
+emptyLevel = Level
+    { _seen = S.empty
+    , _visible = S.empty
+    , _enemies = []
+    , _world = emptyWorld
+    , _stairsUp = M.empty
+    , _stairsDown = M.empty
     }
 
 data RConfig = RConfig 
@@ -32,6 +50,7 @@ data RConfig = RConfig
     , _glyphs     :: GlyphMap
     , _viewRadius :: Int
     , _term       :: Vty
+    , _numLevels  :: Int
     }
 
 data Actor = Actor 
@@ -46,8 +65,12 @@ data Actor = Actor
 type Bindings = M.Map Event (Rogue ())
 type Position = (Int, Int)
 type Size     = (Int, Int)
-type World    = Array Position Thing
 type GlyphMap = M.Map String Glyph
+
+type World = Array Position Thing
+
+emptyWorld :: World
+emptyWorld = array ((0,0),(0,0)) [((0,0),EmptySpace)]
 
 data Glyph = Glyph { _glyph :: Char, _color :: Attr }
 
@@ -59,7 +82,8 @@ data Thing = Floor { _items :: [Item], _structure :: Maybe Structure }
 emptyFloor :: Thing
 emptyFloor = Floor [] Nothing
 
-data Structure = StairsDown | StairsUp
+data Structure = StairsDown
+               | StairsUp
     deriving (Show, Eq)
 
 data Item = Item
@@ -79,6 +103,7 @@ instance (Random x, Random y) => Random (x, y) where
 
 makeLenses ''RState
 makeLenses ''RConfig
+makeLenses ''Level
 makeLenses ''Actor
 makeLenses ''Thing
 makeLenses ''Glyph

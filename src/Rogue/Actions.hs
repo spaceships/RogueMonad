@@ -1,8 +1,11 @@
 module Rogue.Actions
-    (
-      move
+    ( move
     , quit
     , genNewWorld
+    , goDownstairs
+    , goUpstairs
+    , getPosition
+    , getStairsInfo
     ) where
 
 import Rogue.Types
@@ -10,28 +13,30 @@ import Rogue.Util
 import Rogue.World
 import Rogue.WorldGen
 
-import Data.Array ((!))
-import Control.Monad (void, guard)
+import Data.Maybe
+import Data.Array
+import Control.Monad
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Maybe
-import Control.Lens
+import Control.Monad.IO.Class
+import Control.Lens hiding (Level)
+import Graphics.Vty
 
 move :: Direction -> Rogue ()
 move d = void $ runMaybeT $ do
     s <- lift get
-    let w = s^.world
+    let w = s^.currentLevel.world
         newPos = (s^.player.position) `addP` dirToPos d
-    guard (newPos `inWorld` w) 
+    guard (newPos `inWorld` w)
     guard (isFloor (w ! newPos))
-    guard (not $ anyOf (enemies.traverse.position) (== newPos) s)
-    player.position .= newPos
-    lift $ viewTiles newPos
-        
+    guard (not $ anyOf (currentLevel.enemies.traverse.position) (== newPos) s)
+    lift $ positionPlayer newPos
+
 dirToPos :: Direction -> Position
-dirToPos d = case d of 
+dirToPos d = case d of
     N  -> ( 0,-1)
     NE -> ( 1,-1)
     E  -> ( 1, 0)
@@ -44,10 +49,84 @@ dirToPos d = case d of
 quit :: Rogue ()
 quit = exitGameNow .= True
 
+-- wipe everything!
 genNewWorld :: Rogue ()
 genNewWorld = do
     g <- use stdGenR
-    world .= randomWorld g
-    seen .= S.empty
-    positionPlayer
+    w <- randomWorldR
+    currentLevel .= (emptyLevel & world .~ w)
+    upperLevels .= []
+    lowerLevels .= []
+    depth .= 1
+    positionPlayerRandomly
 
+getPosition :: Rogue ()
+getPosition = do
+    pos <- use $ player.position
+    alert $ show pos
+    wait
+
+getStairsInfo :: Rogue ()
+getStairsInfo = do
+    ups <- use $ currentLevel.stairsUp
+    downs <- use $ currentLevel.stairsDown
+    alert $ "up stairs: " ++ show ups ++ "down stairs: " ++ show ups
+    wait
+
+goDownstairs :: Rogue ()
+goDownstairs = do
+    w <- use $ currentLevel.world
+    pos <- use $ player.position
+    when (isDownStair $ w ! pos) goDown
+
+goDown :: Rogue ()
+goDown = do
+    lows <- use lowerLevels         -- generate a new level, if there isn't one already
+    when (null lows) newLowerLevel
+
+    lows' <- use lowerLevels         -- lowerLevels may have been modified
+    l <- use currentLevel
+
+    depth += 1
+    currentLevel .= head lows'
+    upperLevels  %= (l :)
+    lowerLevels  %= tail
+
+    oldPos <- use $ player.position
+    let newPos = fromMaybe (0,0) $ l ^. stairsDown.at oldPos
+    positionPlayer newPos
+
+goUpstairs :: Rogue ()
+goUpstairs = do
+    w <- use $ currentLevel.world
+    pos <- use $ player.position
+    d <- use depth
+    if (d == 1) then
+        promptExitDungeon
+    else
+        when (isUpStair $ w ! pos) goUp
+
+goUp :: Rogue ()
+goUp = do
+    ups <- use upperLevels
+    l <- use currentLevel
+
+    depth -= 1
+    currentLevel .= head ups
+    lowerLevels  %= (l :)
+    upperLevels  %= tail
+
+    oldPos <- use $ player.position
+    let newPos = fromMaybe (0,0) $ l ^. stairsUp.at oldPos
+    positionPlayer  newPos
+
+promptExitDungeon :: Rogue ()
+promptExitDungeon = do
+    alert "Are you sure you want to leave the dungeon? [Y/n]"
+    v <- view term  
+    e <- liftIO $ next_event v
+    case e of
+        EvKey (KASCII 'y') _ -> quit
+        EvKey KEnter _       -> quit
+        EvKey (KASCII 'n') _ -> return ()
+        _                    -> promptExitDungeon

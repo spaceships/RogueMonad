@@ -20,12 +20,12 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Data.Functor
-import Control.Lens
+import Control.Lens hiding (Level)
 import Graphics.Vty
 
 rogue :: Rogue ()
 rogue = do
-    positionPlayer
+    positionPlayerRandomly
     play
 
 play :: Rogue ()
@@ -34,6 +34,7 @@ play = untilQuit $ do
     updateR
     k <- liftIO $ next_event vty
     keys <- view bindings
+    {-fromMaybe (alert ("no binding for key: " ++ show k) >> wait) (M.lookup k keys)-}
     fromMaybe (return ()) (M.lookup k keys)
     play
 
@@ -55,11 +56,11 @@ showWorld = do
 
 charAtPos :: Position -> Rogue Image
 charAtPos pos = do
-    w  <- use world
-    es <- use enemies
+    w  <- use $ currentLevel.world
+    es <- use $ currentLevel.enemies
+    ss <- use $ currentLevel.seen
+    vs <- use $ currentLevel.visible
     p  <- use player
-    ss <- use seen
-    vs <- use visible
     gm <- view glyphs
     let actors = p : es
         actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)

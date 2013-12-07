@@ -11,7 +11,7 @@ import Data.Array (array, (!))
 import System.Random (newStdGen, mkStdGen)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Control.Lens
+import Control.Lens hiding (Level)
 import Graphics.Vty
 
 main :: IO ()
@@ -19,21 +19,24 @@ main = do
     vty <- mkVty
     g <- newStdGen 
 
-    let w = randomWorld g
-        demoConf = RConfig { _glyphs = demoGlyphs
-                           , _bindings = demoBindings
-                           , _viewRadius = 11
-                           , _term = vty
-                           }
+    let (w,g') = randomWorld g
+        demoConf = RConfig 
+            { _glyphs = demoGlyphs
+            , _bindings = demoBindings
+            , _viewRadius = 11
+            , _term = vty
+            , _numLevels = 3
+            }
 
-        demoState = RState { _world = w
-                           , _enemies = []
-                           , _player = demoChar
-                           , _exitGameNow = False
-                           , _stdGenR = g
-                           , _seen = S.empty
-                           , _visible = S.empty
-                           }
+        demoState = RState 
+            { _depth = 1
+            , _player = demoChar
+            , _exitGameNow = False
+            , _stdGenR = g'
+            , _currentLevel = emptyLevel & world .~ w
+            , _upperLevels = []
+            , _lowerLevels = []
+            }
 
     runRogue rogue demoConf demoState
     shutdown vty
@@ -48,7 +51,12 @@ demoBindings = M.fromList
     , (EvKey (KASCII 'n') [], move SE)
     , (EvKey (KASCII 'y') [], move NW)
     , (EvKey (KASCII 'u') [], move NE)
+    , (EvKey (KASCII '>') [], goDownstairs)
+    , (EvKey (KASCII '<') [], goUpstairs)
     , (EvKey (KASCII 'r') [], genNewWorld)
+    , (EvKey (KASCII 'i') [], getPosition)
+    , (EvKey (KASCII 's') [], getStairsInfo)
+    , (EvKey (KASCII 't') [], positionPlayerRandomly)
     , (EvKey KEsc [], quit)
     ]
 
@@ -68,7 +76,19 @@ demoGlyphs = M.fromList
     , ("Wall"        , wallGlyph)
     , ("Player"      , playerGlyph)
     , ("EmptySpace"  , emptySpaceGlyph)
+    , ("StairsDown"  , stairsDownGlyph)
+    , ("StairsUp"    , stairsUpGlyph)
     ]
+
+stairsDownGlyph = Glyph 
+    { _glyph = '>'
+    , _color = def_attr `with_fore_color` (Color240 74)
+    }
+
+stairsUpGlyph = Glyph 
+    { _glyph = '<'
+    , _color = def_attr `with_fore_color` (Color240 74)
+    }
 
 emptySpaceGlyph = Glyph 
     { _glyph = ' '
