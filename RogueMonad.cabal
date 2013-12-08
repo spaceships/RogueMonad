@@ -9,7 +9,7 @@ maintainer         : bcarmer@gmail.com
 category           : Game
 build-type         : Simple
 extra-source-files : README.md
-cabal-version      : >=1.10
+cabal-version      : >=1.18
 
 executable rogue-monad
     main-is          : Main.hs

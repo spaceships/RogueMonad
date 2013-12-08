@@ -7,42 +7,54 @@ import Rogue.World
 import Rogue.WorldGen
 import Rogue.Util
 
-import Data.Array (array, (!))
 import System.Random (newStdGen, mkStdGen)
+import Control.Lens ((&), (.~))
 import qualified Data.Map as M
-import qualified Data.Set as S
-import Control.Lens hiding (Level)
 import Graphics.Vty
 
 main :: IO ()
 main = do
+    cfg <- defaultConfig
+    st  <- defaultState
+    runRogue rogue cfg st
+
+defaultConfig :: IO RConfig
+defaultConfig = do
     vty <- mkVty
+    return $ RConfig 
+        { _glyphs = defaultGlyphs
+        , _bindings = defaultBindings
+        , _viewRadius = 11
+        , _term = vty
+        , _numLevels = 3
+        , _numStairs = 3
+        }
+
+defaultState :: IO RState
+defaultState = do
     g <- newStdGen 
+    return $ RState 
+        { _depth = 0
+        , _player = initialPlayer
+        , _exitGameNow = False
+        , _stdGenR = g
+        , _currentLevel = emptyLevel
+        , _upperLevels = []
+        , _lowerLevels = []
+        }
 
-    let (w,g') = randomWorld g
-        demoConf = RConfig 
-            { _glyphs = demoGlyphs
-            , _bindings = demoBindings
-            , _viewRadius = 11
-            , _term = vty
-            , _numLevels = 3
-            }
+initialPlayer :: Actor
+initialPlayer = Actor 
+    { _hp = 10
+    , _maxHp = 10
+    , _acc = 10
+    , _def = 10 
+    , _position = (1,1)
+    , _name = "Player"
+    }
 
-        demoState = RState 
-            { _depth = 1
-            , _player = demoChar
-            , _exitGameNow = False
-            , _stdGenR = g'
-            , _currentLevel = emptyLevel & world .~ w
-            , _upperLevels = []
-            , _lowerLevels = []
-            }
-
-    runRogue rogue demoConf demoState
-    shutdown vty
-
-demoBindings :: Bindings
-demoBindings = M.fromList
+defaultBindings :: Bindings
+defaultBindings = M.fromList
     [ (EvKey (KASCII 'j') [], move S)
     , (EvKey (KASCII 'k') [], move N)
     , (EvKey (KASCII 'h') [], move W)
@@ -60,18 +72,8 @@ demoBindings = M.fromList
     , (EvKey KEsc [], quit)
     ]
 
-demoChar :: Actor
-demoChar = Actor 
-    { _hp = 5
-    , _maxHp = 10
-    , _acc = 10
-    , _def = 10 
-    , _position = (1,1)
-    , _name = "Player"
-    }
-
-demoGlyphs :: GlyphMap
-demoGlyphs = M.fromList 
+defaultGlyphs :: GlyphMap
+defaultGlyphs = M.fromList 
     [ ("Floor"       , floorGlyph)
     , ("Wall"        , wallGlyph)
     , ("Player"      , playerGlyph)

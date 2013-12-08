@@ -9,16 +9,17 @@ module Rogue.WorldGen
 import Rogue.Types
 import Rogue.Util
 
-import Data.Array (assocs, bounds, array, (!), (//))
+import Data.Array ((!), (//))
 import Data.List (delete)
 import Data.Maybe (fromJust, isJust)
 import qualified Data.Map as M
+import qualified Data.Array as A
+import System.Random
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 import Control.Monad
 import Control.Applicative
-import System.Random
-import Control.Lens hiding (Level)
+import Control.Lens
 
 data WorldGenSt = WorldGenSt
     { _partialWorld :: World
@@ -35,6 +36,9 @@ data WorldGenCfg = WorldGenCfg
     , _roomOverlapAllowed :: Bool
     , _numTunnels :: Int
     , _onlyTerminalTunnels :: Bool
+    , _depthW :: Int
+    , _maxDepthW :: Int
+    , _numStairsW :: Int
     }
 
 type WorldGen = StateT WorldGenSt (Reader WorldGenCfg)
@@ -49,20 +53,64 @@ $( makeLenses ''WorldGenCfg )
 randomWorldR :: Rogue World
 randomWorldR = do
     g <- use stdGenR
-    let (w, g') = randomWorld g
+    d <- use depth
+    maxD <- view numLevels
+    nstairs <- view numStairs
+    let (w, g') = randomWorld (d+1) maxD nstairs g
     stdGenR .= g'
     return w
 
-randomWorld :: StdGen -> (World, StdGen)
-randomWorld g = runWorldGen createWorld st cfg
+randomWorld :: Int -> Int -> Int -> StdGen -> (World, StdGen)
+randomWorld depth maxDepth numStairs g = runWorldGen createWorld st cfg'
   where
     (cfg, g') = runState randWorldGenCfg g
-    st        = WorldGenSt
-                    { _partialWorld = emptyWorld
-                    , _stdGenW = g'
-                    , _floors = []
-                    , _walls = []
-                    }
+    cfg' = cfg { _depthW = depth 
+               , _maxDepthW = maxDepth 
+               , _numStairsW = numStairs
+               }
+    st = WorldGenSt
+            { _partialWorld = emptyWorld
+            , _stdGenW = g'
+            , _floors = []
+            , _walls = []
+            }
+
+createWorld :: WorldGen World
+createWorld = do
+    clearWorld
+    makeInitialRoom
+    makeTunnels
+
+    n <- view numStairsW
+    d <- view depthW
+    replicateM_ n $ positionStructure StairsUp
+    maxD <- view maxDepthW 
+    unless (d >= maxD) $ replicateM_ n (positionStructure StairsDown)
+
+    w <- use partialWorld
+    return w
+
+randWorldGenCfg :: State StdGen WorldGenCfg
+randWorldGenCfg = do
+    ws <- randSizeSt ((50,25),(200,100))
+    minRs <- randSizeSt ((3,3),(10,7))
+    maxRs <- randSizeSt (minRs,(20,15))
+    tt <- randRSt (0.40,0.90)
+    roa <- randSt
+    num <- randRSt (20,70)
+    otts <- randSt
+    return WorldGenCfg 
+        { _worldSize = ws
+        , _depthW = 0
+        , _maxDepthW = 0
+        , _numStairsW = 0
+        , _minRoomSize = minRs
+        , _maxRoomSize = maxRs
+        , _tunnelThreshold = tt
+        , _roomOverlapAllowed = roa
+        , _numTunnels = num
+        , _onlyTerminalTunnels = otts
+        }
 
 inWorldW :: Position -> WorldGen Bool
 inWorldW p = do
@@ -80,24 +128,6 @@ randElemW :: [a] -> WorldGen a
 randElemW xs = do
     n <- randW (0, length xs - 1)
     return (xs !! n)
-
-randWorldGenCfg :: State StdGen WorldGenCfg
-randWorldGenCfg = do
-    ws <- randSizeSt ((50,25),(200,100))
-    minRs <- randSizeSt ((3,3),(10,7))
-    maxRs <- randSizeSt (minRs,(20,15))
-    tt <- randRSt (0.40,0.90)
-    roa <- randSt
-    num <- randRSt (20,70)
-    otts <- randSt
-    return WorldGenCfg { _worldSize = ws
-                       , _minRoomSize = minRs
-                       , _maxRoomSize = maxRs
-                       , _tunnelThreshold = tt
-                       , _roomOverlapAllowed = roa
-                       , _numTunnels = num
-                       , _onlyTerminalTunnels = otts
-                       }
 
 randSt :: Random a => State StdGen a
 randSt = do
@@ -129,7 +159,7 @@ room s@(maxX, maxY) =
 clearWorld :: WorldGen ()
 clearWorld = do
     size@(maxX, maxY) <- view worldSize
-    let w = array ((0,0), size) $ do
+    let w = A.array ((0,0), size) $ do
             x <- [0..maxX]
             y <- [0..maxY]
             return ((x,y), EmptySpace)
@@ -146,10 +176,6 @@ directionVectors = [north,south,east,west,northeast,northwest,southeast,southwes
     northwest = addP (-1,-1)
     southeast = addP (1,1)
     southwest = addP (-1,1)
-
-
---directionsAndDirectionVectors :: Position -> [(Direction, Position)]
---directionsAndDirectionVectors pos = zip [N,S,E,W,NE,NW,SE,SW] (directionVectors <*> pure pos)
 
 directionToVector :: Direction -> Position -> Position
 directionToVector N = directionVectors !! 0
@@ -270,16 +296,6 @@ makeInitialRoom = do
     ok <- createRoom dir pos
     unless ok makeInitialRoom
 
-createWorld :: WorldGen World
-createWorld = do
-    clearWorld
-    makeInitialRoom
-    makeTunnels
-    replicateM_ 3 $ positionStructure StairsDown
-    replicateM_ 3 $ positionStructure StairsUp
-    w <- use partialWorld
-    return w
-
 makeTunnels :: WorldGen ()
 makeTunnels = do
     max <- view numTunnels
@@ -302,7 +318,7 @@ makeTunnels = do
 positionStructure :: Structure -> WorldGen ()
 positionStructure s = do
     w <- use partialWorld
-    let ps = filter (\(_,x) -> isFloor x && hasNoStructure x) $ assocs w
+    let ps = filter (\(_,x) -> isFloor x && hasNoStructure x) $ A.assocs w
     unless (null ps) $ do
         p <- randElemW ps
         let t = snd p & structure .~ Just s

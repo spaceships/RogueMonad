@@ -84,11 +84,11 @@ goDown = do
     lows <- use lowerLevels         -- generate a new level, if there isn't one already
     when (null lows) newLowerLevel
 
-    lows' <- use lowerLevels         -- lowerLevels may have been modified
+    lows <- use lowerLevels         -- lowerLevels may have been modified
     l <- use currentLevel
 
     depth += 1
-    currentLevel .= head lows'
+    currentLevel .= head lows
     upperLevels  %= (l :)
     lowerLevels  %= tail
 
@@ -118,7 +118,7 @@ goUp = do
 
     oldPos <- use $ player.position
     let newPos = fromMaybe (0,0) $ l ^. stairsUp.at oldPos
-    positionPlayer  newPos
+    positionPlayer newPos
 
 promptExitDungeon :: Rogue ()
 promptExitDungeon = do

@@ -25,8 +25,10 @@ import Graphics.Vty
 
 rogue :: Rogue ()
 rogue = do
-    positionPlayerRandomly
+    genNewWorld 
     play
+    vty <- view term
+    liftIO $ shutdown vty
 
 play :: Rogue ()
 play = untilQuit $ do
