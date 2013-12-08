@@ -67,9 +67,8 @@ defaultBindings = M.fromList
     , (EvKey (KASCII '<') [], goUpstairs)
     , (EvKey (KASCII 'r') [], genNewWorld)
     , (EvKey (KASCII 'i') [], getPosition)
-    , (EvKey (KASCII 's') [], getStairsInfo)
     , (EvKey (KASCII 't') [], positionPlayerRandomly)
-    , (EvKey KEsc [], quit)
+    , (EvKey KEsc [], promptExitDungeon)
     ]
 
 defaultGlyphs :: GlyphMap

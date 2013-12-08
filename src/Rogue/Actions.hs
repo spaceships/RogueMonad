@@ -1,11 +1,10 @@
 module Rogue.Actions
     ( move
-    , quit
     , genNewWorld
     , goDownstairs
     , goUpstairs
+    , promptExitDungeon
     , getPosition
-    , getStairsInfo
     ) where
 
 import Rogue.Types
@@ -13,11 +12,11 @@ import Rogue.Util
 import Rogue.World
 import Rogue.WorldGen
 
-import Data.Maybe
-import Data.Array
-import Control.Monad
+import Data.Array ((!))
 import qualified Data.Map as M
 import qualified Data.Set as S
+import Data.Maybe
+import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Maybe
@@ -63,14 +62,12 @@ genNewWorld = do
 getPosition :: Rogue ()
 getPosition = do
     pos <- use $ player.position
-    alert $ show pos
+    d <- use depth
+    alert $ "Depth: " ++ show d ++ "\nPosition: " ++ show pos
     wait
 
 getStairsInfo :: Rogue ()
 getStairsInfo = do
-    ups <- use $ currentLevel.stairsUp
-    downs <- use $ currentLevel.stairsDown
-    alert $ "up stairs: " ++ show ups ++ "down stairs: " ++ show ups
     wait
 
 goDownstairs :: Rogue ()
@@ -127,6 +124,7 @@ promptExitDungeon = do
     e <- liftIO $ next_event v
     case e of
         EvKey (KASCII 'y') _ -> quit
+        EvKey (KASCII 'Y') _ -> quit
         EvKey KEnter _       -> quit
         EvKey (KASCII 'n') _ -> return ()
         _                    -> promptExitDungeon

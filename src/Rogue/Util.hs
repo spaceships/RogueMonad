@@ -6,17 +6,41 @@ import Data.List (unfoldr)
 import System.Random (Random, random, randomR)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
-import Data.Array
+import qualified Data.Array as A
+import Data.Functor ((<$>))
 import Text.Printf
 import Control.Lens
 import Graphics.Vty
+import Graphics.Vty.Image
 
--- draw message on screen (as only thing)
+fi = fromIntegral
+
+-- draw message centered on screen (as only thing)
 alert :: String -> Rogue ()
 alert msg = do
     v <- view term
-    liftIO $ update v $ pic_for_image $ string def_attr msg
-    return ()
+    t <- terminal_handle
+    DisplayRegion x y <- display_bounds t
+     
+    let msg'     = concatMap (\s -> if length s > fi x then groupsOf (fi x) s else [s]) (lines msg)
+        msgLines = vert_cat $ string def_attr <$> msg'
+        h        = image_height msgLines
+        w        = image_width msgLines
+        vdiff    = (y - h) `div` 2
+        hdiff    = (x - w) `div` 2
+        vfill    = char_fill def_attr ' ' 1 vdiff
+        hfill    = char_fill def_attr ' ' hdiff h
+        msgImg   = vfill <-> (hfill <|> msgLines)
+    
+    liftIO $ update v $ pic_for_image msgImg
+
+  where
+    width = wcswidth msg
+
+groupsOf :: Int -> [a] -> [[a]]
+groupsOf n xs 
+    | length xs > n = take n xs : groupsOf n (drop n xs)
+    | otherwise     = [xs]
 
 -- Wait for user to press a key
 wait :: Rogue ()
@@ -151,4 +175,4 @@ inWorld (x,y) w =
     x < maxX && 
     y < maxY
   where
-    (_, (maxX, maxY)) = bounds w
+    (_, (maxX, maxY)) = A.bounds w
