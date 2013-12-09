@@ -13,7 +13,6 @@ import qualified Data.Set as S
 
 import Data.Functor
 import Data.Maybe (isJust, fromJust, mapMaybe)
-import Data.Array
 import Control.Monad
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader

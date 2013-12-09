@@ -12,10 +12,9 @@ import Rogue.Util
 import Rogue.World
 import Rogue.WorldGen
 
-import Data.Array ((!))
+import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Data.Maybe
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State

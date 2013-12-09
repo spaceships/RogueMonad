@@ -5,7 +5,6 @@ module Rogue.Types where
 import System.Random (Random, StdGen, Random, random, randomR)
 import Control.Lens (makeLenses)
 import Graphics.Vty (Attr, Vty, Event)
-import qualified Data.Array as A
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Control.Monad.Trans.State

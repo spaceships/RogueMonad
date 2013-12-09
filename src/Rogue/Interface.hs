@@ -9,9 +9,7 @@ import Rogue.World
 import Rogue.Actions
 
 import Data.Maybe (isJust, fromJust)
-import Data.Array ((!))
 import Control.Monad (join, unless)
-import Text.Printf (printf)
 import Data.Maybe (fromMaybe)
 import qualified Data.Map as M
 import qualified Data.Set as S

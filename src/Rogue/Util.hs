@@ -3,12 +3,10 @@ module Rogue.Util where
 import Rogue.Types
 
 import Data.List (unfoldr)
-import Data.Maybe (isJust)
 import System.Random (Random, random, randomR)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
 import Data.Functor ((<$>))
-import Text.Printf
 import Control.Lens
 import Graphics.Vty
 import Graphics.Vty.Image
