@@ -65,12 +65,12 @@ charAtPos pos = do
     p  <- use player
     gm <- view glyphs
     let actors = p : es
-        actorAtPos = actors ^? traversed.filtered (\a-> a^.position == pos)
+        actorAtPos = actors ^? traversed.filtered (\a -> a^.position == pos)
         emptySpace = gm ^?! ix "EmptySpace"
-    if pos `inWorld` w && S.member pos ss then return $
+    if S.member pos ss then return $
         let n    = if isJust actorAtPos 
                    then fromJust actorAtPos ^.name
-                   else simplify $ w ! pos
+                   else simplify $ w ^. at pos
             gly  = fromMaybe emptySpace $ gm ^? ix n
             attr = if S.member (pos) vs
                    then gly^.color 
@@ -79,10 +79,11 @@ charAtPos pos = do
         in char attr chr
     else return $ char (emptySpace^.color) (emptySpace^.glyph)
   where 
-    simplify (Floor [] Nothing)    = "Floor"
-    simplify (Floor (x:_) Nothing) = show x
-    simplify (Floor _ (Just s))    = show s
-    simplify x = show x
+    simplify Nothing                      = "Empty Space"
+    simplify (Just (Floor [] Nothing))    = "Floor"
+    simplify (Just (Floor (x:_) Nothing)) = show x
+    simplify (Just (Floor _ (Just s)))    = show s
+    simplify (Just x)                     = show x
 
 screenDimensions :: Rogue (Position, Position)
 screenDimensions = do

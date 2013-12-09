@@ -9,11 +9,9 @@ module Rogue.WorldGen
 import Rogue.Types
 import Rogue.Util
 
-import Data.Array ((!), (//))
 import Data.List (delete)
-import Data.Maybe (fromJust, isJust)
+import Data.Maybe (mapMaybe, fromJust, isJust, isNothing)
 import qualified Data.Map as M
-import qualified Data.Array as A
 import System.Random
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
@@ -75,6 +73,11 @@ randomWorld depth maxDepth numStairs g = runWorldGen createWorld st cfg'
             , _walls = []
             }
 
+inWorldW :: Position -> WorldGen Bool
+inWorldW (x,y) = do
+    (maxX,maxY) <- view worldSize
+    return (x <= maxX && y <= maxY) 
+
 createWorld :: WorldGen World
 createWorld = do
     clearWorld
@@ -112,11 +115,6 @@ randWorldGenCfg = do
         , _onlyTerminalTunnels = otts
         }
 
-inWorldW :: Position -> WorldGen Bool
-inWorldW p = do
-    w <- use partialWorld
-    return $ p `inWorld` w
-
 randW :: Random a => (a,a) -> WorldGen a
 randW range = do
     g <- use stdGenW
@@ -149,6 +147,39 @@ randSizeSt ((x1,y1),(x2,y2)) = do
     y <- randRSt (y1,y2)
     return (x,y)
 
+clearWorld :: WorldGen ()
+clearWorld = partialWorld .= M.empty
+
+addToWorld :: [(Position, Thing)] -> WorldGen ()
+addToWorld = (^! folded.act addThing)
+  where
+    addThing (p,t) = do
+        w  <- use partialWorld
+        let wt = w^.at p
+        -- Floor > Wall > Empty
+        if isFloor t then do
+            unless (isJustFloor wt) $ do
+                floors %= (p:)
+                partialWorld.at p ?= t
+            when (isJustWall wt) $ walls %= delete p
+        else when (isWall t) $ do
+            unless (isJustFloor wt || isJustWall wt) $ do
+                walls %= (p:)
+                partialWorld.at p ?= t
+
+fitsInWorld :: [(Position, Thing)] -> WorldGen Bool
+fitsInWorld things = do
+    w <- use partialWorld
+    -- Is every tile of tngs contained within worldSize?
+    inBounds <- and <$> mapM inWorldW (fst <$> things)
+    -- Can rooms overlap?
+    overlapAllowed <- view roomOverlapAllowed
+    -- It's okay for walls to overlap when overlap is not allowed
+    let walls     = things ^.. traversed.filtered (isWall.snd)
+        overlaps  = mapMaybe (\(i,_)-> w^.at i) walls
+        onlyWalls = all isWall overlaps
+    return $ inBounds && (overlapAllowed || onlyWalls)
+
 room :: Size -> [(Position, Thing)]
 room s@(maxX, maxY) =
     [ ((x,y), thing (x,y)) | x <- [0..maxX], y <- [0..maxY] ]
@@ -156,101 +187,24 @@ room s@(maxX, maxY) =
     thing (x,y) | x == 0 || y == 0 || x == maxX || y == maxY = Wall
                 | otherwise = emptyFloor
 
-clearWorld :: WorldGen ()
-clearWorld = do
-    size@(maxX, maxY) <- view worldSize
-    let w = A.array ((0,0), size) $ do
-            x <- [0..maxX]
-            y <- [0..maxY]
-            return ((x,y), EmptySpace)
-    partialWorld .= w
-
-directionVectors :: [Position -> Position]
-directionVectors = [north,south,east,west,northeast,northwest,southeast,southwest]
-  where
-    north = addP (0,-1)
-    south = addP (0,1)
-    east  = addP (1,0)
-    west  = addP (-1,0)
-    northeast = addP (1,-1)
-    northwest = addP (-1,-1)
-    southeast = addP (1,1)
-    southwest = addP (-1,1)
-
-directionToVector :: Direction -> Position -> Position
-directionToVector N = directionVectors !! 0
-directionToVector S = directionVectors !! 1
-directionToVector E = directionVectors !! 2
-directionToVector W = directionVectors !! 3
-
-tunnelDirection :: Position -> WorldGen (Maybe Direction)
-tunnelDirection pos = do
-    w <- use partialWorld
-    let ds = do d <- [N,S,E,W]
-                let thing = w ! directionToVector d pos
-                guard (thing == EmptySpace)
-                return d
-    if not (null ds) then do
-        d <- randElemW ds
-        return (Just d)
-    else
-        return Nothing
-
-addToWorld :: [(Position, Thing)] -> WorldGen ()
-addToWorld [] = return ()
-addToWorld ((pos, thing):ts) = do
-    w <- use partialWorld
-    when (pos `inWorld` w) $ do
-        case w ! pos of
-            EmptySpace -> addThing (pos, thing)
-            Wall -> when (isFloor thing) $ do
-                removeWall pos
-                addThing (pos,thing)
-            _ -> return ()
-        addToWorld ts
-  where
-    addThing (p,t) = do
-        if t == Wall then do
-            ws <- use walls
-            unless (p `elem` ws) $ walls %= (p:)
-        else do
-            fs <- use floors
-            unless (p `elem` fs) $ floors %= (p:)
-        partialWorld %= (// [(p,t)])
-    removeWall p = do
-        walls %= delete p
-
-fitsInWorld :: [(Position, Thing)] -> WorldGen Bool
-fitsInWorld thgs = do
-    w <- use partialWorld
-    if not $ all (`inWorld` w) (fst <$> thgs) then
-        return False
-    else do
-        overlapAllowed <- view roomOverlapAllowed
-        return $ (||) overlapAllowed $ and $ do
-            (p,nt) <- thgs
-            let wt = w ! p
-                b  = wt == EmptySpace || (nt == Wall) && (wt == Wall)
-            return b
-
 createRoom :: Direction -> Position -> WorldGen Bool
-createRoom dir pos@(px,py) = roomLoop 0
+createRoom dir (px,py) = roomLoop 0
   where
     roomLoop n = if n >= 3 then return False else do
         min  <- view minRoomSize
         max  <- view maxRoomSize
-        size@(rx,ry) <- randW (min, max)
-        let r = room size
+        (rx,ry) <- randW (min, max)
+        let r = room (rx,ry)
 
         r' <- case dir of
             N -> do n <- randW (1,rx-1)
-                    return $ r & mapped._1 %~ addP (px - n, py - ry)
+                    return $ r & mapped._1 %~ addP (px-n,py-ry)
             S -> do n <- randW (1,rx-1)
-                    return $ r & mapped._1 %~ addP (px - n, py)
+                    return $ r & mapped._1 %~ addP (px-n,py)
             E -> do n <- randW (1,ry-1)
-                    return $ r & mapped._1 %~ addP (px, py - n)
+                    return $ r & mapped._1 %~ addP (px,py-n)
             W -> do n <- randW (1,ry-1)
-                    return $ r & mapped._1 %~ addP (px - rx, py - n)
+                    return $ r & mapped._1 %~ addP (px-rx,py-n)
 
         fits <- fitsInWorld r'
         if fits then do
@@ -258,6 +212,15 @@ createRoom dir pos@(px,py) = roomLoop 0
             return True
         else
             roomLoop (n+1)
+
+makeInitialRoom :: WorldGen ()
+makeInitialRoom = do
+    dir <- randElemW [N,S,E,W]
+    maxSize <- view maxRoomSize
+    ws <- view worldSize
+    pos <- randW ((0,0), ws `subP` maxSize)
+    ok <- createRoom dir pos
+    unless ok makeInitialRoom
 
 tunnel :: Position -> Direction -> WorldGen Bool
 tunnel pos dir = do
@@ -287,14 +250,18 @@ tunnel pos dir = do
         addToWorld $ (pos, Wall) : sideWalls
         return False
 
-makeInitialRoom :: WorldGen ()
-makeInitialRoom = do
-    dir <- randElemW [N,S,E,W]
-    maxSize <- view maxRoomSize
-    ws <- view worldSize
-    pos <- randW ((0,0), ws `subP` maxSize)
-    ok <- createRoom dir pos
-    unless ok makeInitialRoom
+tunnelDirection :: Position -> WorldGen (Maybe Direction)
+tunnelDirection pos = do
+    w <- use partialWorld
+    let ds = do d <- [N,S,E,W]
+                let thing = w ^. at (directionToVector d pos)
+                guard (isNothing thing)
+                return d
+    if not (null ds) then do
+        d <- randElemW ds
+        return (Just d)
+    else
+        return Nothing
 
 makeTunnels :: WorldGen ()
 makeTunnels = do
@@ -312,15 +279,32 @@ makeTunnels = do
   where
     adjacentFloor pos = do
         w <- use partialWorld
-        let things = fmap (w !) (take 4 directionVectors <*> pure pos)
+        let things = mapMaybe (\i -> w ^. at i) (take 4 directionVectors <*> pure pos)
         return $ any isFloor things
+
+directionVectors :: [Position -> Position]
+directionVectors = [north,south,east,west,northeast,northwest,southeast,southwest]
+  where
+    north = addP (0,-1)
+    south = addP (0,1)
+    east  = addP (1,0)
+    west  = addP (-1,0)
+    northeast = addP (1,-1)
+    northwest = addP (-1,-1)
+    southeast = addP (1,1)
+    southwest = addP (-1,1)
+
+directionToVector :: Direction -> Position -> Position
+directionToVector N = directionVectors !! 0
+directionToVector S = directionVectors !! 1
+directionToVector E = directionVectors !! 2
+directionToVector W = directionVectors !! 3
 
 positionStructure :: Structure -> WorldGen ()
 positionStructure s = do
-    w <- use partialWorld
-    let ps = filter (\(_,x) -> isFloor x && hasNoStructure x) $ A.assocs w
+    ps <- gets (^@.. partialWorld.itraversed
+                   . filtered isFloor
+                   . filtered hasNoStructure)
     unless (null ps) $ do
-        p <- randElemW ps
-        let t = snd p & structure .~ Just s
-            w' = w // [(fst p, t)]
-        partialWorld .= w'
+        p <- fst <$> randElemW ps
+        partialWorld.ix p.structure ?= s

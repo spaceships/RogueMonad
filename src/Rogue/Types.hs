@@ -56,7 +56,6 @@ data Glyph = Glyph { _glyph :: Char, _color :: Attr }
 
 data Thing = Floor { _items :: [Item], _structure :: Maybe Structure }
            | Wall
-           | EmptySpace
     deriving (Show, Eq)
 
 data Structure = StairsDown
@@ -69,7 +68,7 @@ data Item = Item
 data Direction = N | NE | E | SE | S | SW | W | NW
     deriving (Ord, Eq, Show, Enum)
 
-type World    = A.Array Position Thing
+type World    = M.Map Position Thing
 type Bindings = M.Map Event (Rogue ())
 type GlyphMap = M.Map String Glyph
 type Position = (Int, Int)
@@ -95,7 +94,7 @@ emptyLevel = Level
     }
 
 emptyWorld :: World
-emptyWorld = A.array ((0,0),(0,0)) [((0,0),EmptySpace)]
+emptyWorld = M.empty
 
 emptyFloor :: Thing
 emptyFloor = Floor [] Nothing

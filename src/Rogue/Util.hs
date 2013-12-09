@@ -3,10 +3,10 @@ module Rogue.Util where
 import Rogue.Types
 
 import Data.List (unfoldr)
+import Data.Maybe (isJust)
 import System.Random (Random, random, randomR)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
-import qualified Data.Array as A
 import Data.Functor ((<$>))
 import Text.Printf
 import Control.Lens
@@ -155,6 +155,10 @@ isFloor :: Thing -> Bool
 isFloor (Floor _ _) = True
 isFloor _ = False
 
+isWall :: Thing -> Bool
+isWall Wall = True
+isWall _ = False
+
 isDownStair :: Thing -> Bool
 isDownStair (Floor _ (Just StairsDown)) = True
 isDownStair _ = False
@@ -168,11 +172,18 @@ hasNoStructure (Floor _ Nothing) = True
 hasNoStructure (Floor _ _ )      = False
 hasNoStructure _                 = False
 
-inWorld :: Position -> World -> Bool
-inWorld (x,y) w = 
-    x > 0 && 
-    y > 0 && 
-    x < maxX && 
-    y < maxY
-  where
-    (_, (maxX, maxY)) = A.bounds w
+isJustUpStair :: Maybe Thing -> Bool
+isJustUpStair (Just (Floor _ (Just StairsUp))) = True
+isJustUpStair _ = False
+
+isJustDownStair :: Maybe Thing -> Bool
+isJustDownStair (Just (Floor _ (Just StairsDown))) = True
+isJustDownStair _ = False
+
+isJustFloor :: Maybe Thing -> Bool
+isJustFloor (Just (Floor _ _)) = True
+isJustFloor _ = False
+
+isJustWall :: Maybe Thing -> Bool
+isJustWall (Just Wall) = True
+isJustWall _ = False

@@ -1,6 +1,5 @@
 module Rogue.World 
     ( viewTiles
-    , inWorld
     , positionPlayer
     , positionPlayerRandomly
     , newLowerLevel
@@ -12,6 +11,8 @@ import Rogue.WorldGen
 
 import qualified Data.Set as S
 
+import Data.Functor
+import Data.Maybe (isJust, fromJust, mapMaybe)
 import Data.Array
 import Control.Monad
 import Control.Monad.Trans.State
@@ -36,9 +37,10 @@ visibleTiles p1 r w = S.toList $ execState addPositions S.empty
     endPts = circlePoints' p1 r
     addPositions :: State (S.Set Position) ()
     addPositions = forM_ endPts $ \p2 -> do 
-        let seg = segment p1 p2 r
-            ps  = takeWhile' (\p -> inWorld p w && (isFloor $ w ! p)) seg
-        mapM_ (\p -> modify (S.insert p)) ps
+        let f i = let t = w^.at i in if isJust t then Just (i, fromJust t) else Nothing
+            seg = mapMaybe f $ segment p1 p2 r
+            ps  = takeWhile' (isFloor.snd) seg
+        mapM_ (modify . S.insert . fst) ps
 
 positionPlayer :: Position -> Rogue ()
 positionPlayer pos = do
@@ -47,10 +49,9 @@ positionPlayer pos = do
 
 positionPlayerRandomly :: Rogue ()
 positionPlayerRandomly = do
-    w <- use $ currentLevel.world
-    let pos = map fst $ filter (isFloor . snd) $ assocs w
-    if not (null pos) then do
-        newPos <- randElemR pos
+    possiblePlaces <- gets (^..currentLevel.world.itraversed.filtered isFloor.asIndex)
+    if not (null possiblePlaces) then do
+        newPos <- randElemR possiblePlaces
         player.position .= newPos
         viewTiles newPos
     else
@@ -65,13 +66,9 @@ newLowerLevel = do
 -- Link the stairs of the current and next levels
 linkStairs :: Rogue ()
 linkStairs = do
-    w1 <- use $ currentLevel.world
-    nextLevels <- use lowerLevels
-    let nextLevel = head nextLevels
-        w2 = nextLevel ^. world
-        downStairs = filter (isDownStair . snd) $ assocs w1
-        upStairs = filter (isUpStair . snd) $ assocs w2
-        pairings = zip downStairs upStairs
-    forM_ pairings $ \((p1,_),(p2,_)) -> do
-        currentLevel.stairsDown.at p1 ?= p2
+    downStairs <- gets (^..currentLevel.world.itraversed.filtered isDownStair.asIndex)
+    upStairs   <- gets (^..lowerLevels.element 0.world.itraversed.filtered isUpStair.asIndex)
+    let pairings = zip downStairs upStairs
+    forM_ pairings $ \(p1,p2) -> do
+        currentLevel.stairsDown.at p1        ?= p2
         lowerLevels.element 0.stairsUp.at p2 ?= p1

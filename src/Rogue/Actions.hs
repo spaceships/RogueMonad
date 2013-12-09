@@ -29,8 +29,7 @@ move d = void $ runMaybeT $ do
     s <- lift get
     let w = s^.currentLevel.world
         newPos = (s^.player.position) `addP` dirToPos d
-    guard (newPos `inWorld` w)
-    guard (isFloor (w ! newPos))
+    guard (isJustFloor $ w ^. at newPos)
     guard (not $ anyOf (currentLevel.enemies.traverse.position) (== newPos) s)
     lift $ positionPlayer newPos
 
@@ -74,7 +73,7 @@ goDownstairs :: Rogue ()
 goDownstairs = do
     w <- use $ currentLevel.world
     pos <- use $ player.position
-    when (isDownStair $ w ! pos) goDown
+    when (isJustDownStair $ w ^. at pos) goDown
 
 goDown :: Rogue ()
 goDown = do
@@ -101,7 +100,7 @@ goUpstairs = do
     if (d == 1) then
         promptExitDungeon
     else
-        when (isUpStair $ w ! pos) goUp
+        when (isJustUpStair $ w ^. at pos) goUp
 
 goUp :: Rogue ()
 goUp = do
