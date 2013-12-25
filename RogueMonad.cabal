@@ -12,6 +12,7 @@ extra-source-files : README.md
 cabal-version      : >=1.18
 
 executable rogue-monad
+    GHC-Options: -O2
     main-is          : Main.hs
     other-modules    : Rogue.Interface, Rogue.Types, Rogue.Actions, Rogue.World
     build-depends    : base >=4.6 && <4.7

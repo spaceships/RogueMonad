@@ -97,7 +97,7 @@ goUpstairs = do
     pos <- use $ player.position
     d <- use depth
     if (d == 1) then
-        promptExitDungeon
+        when (isJustUpStair $ w ^. at pos) promptExitDungeon
     else
         when (isJustUpStair $ w ^. at pos) goUp
 
