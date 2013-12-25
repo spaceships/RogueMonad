@@ -8,7 +8,7 @@ Running
 
 Get dependencies
 
->   cabal configure
+>   cabal install --only-dependencies
 
 Install to ~/.cabal/bin
 
